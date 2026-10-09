@@ -1,3 +1,4 @@
+import json
 from app.core.orchestrator import FraudShieldOrchestrator
 from app.data.transaction_generator import TransactionGenerator
 from app.fraud.scenario_generator import FraudScenarioGenerator
@@ -220,3 +221,48 @@ def test_orchestrator_builds_investigation_case(tmp_path):
     assert case["required_actions"] == [
         "Investigate supporting evidence."
     ]
+
+
+def test_data_quality_rejection_stops_fraud_pipeline(tmp_path):
+    audit_file = tmp_path / "audit_ledger.jsonl"
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(audit_file)
+    )
+
+    result = orchestrator.run(
+        task_id="DQ-REJECT-001",
+        data={
+            "transactions": [
+                {
+                    "transaction_id": "TX-BAD-001",
+                    "account_id": "ACC1000",
+                    "device_id": "DEV1000",
+                    "ip_address": "192.168.1.10",
+                    "country": "XX",
+                    "merchant_category": "ELECTRONICS",
+                    "amount": 1500.0,
+                    "timestamp": "2026-01-01T10:00:00+00:00",
+                    "is_fraud": False,
+                }
+            ]
+        },
+    )
+
+    assert result["data_quality"]["status"] == "REJECT"
+    assert result["data_quality"]["valid_transactions"] == 0
+    assert result["pattern_findings"] == []
+    assert result["evidence_assessment"] is None
+    assert result["investigation_case"] is None
+
+    lines = audit_file.read_text(
+        encoding="utf-8"
+    ).splitlines()
+
+    actions = [
+        json.loads(line)["action"]
+        for line in lines
+    ]
+
+    assert "DATA_QUALITY_VALIDATION" in actions
+    assert "EVIDENCE_CORRELATION" not in actions
+    assert "INVESTIGATION_CASE_BUILT" not in actions

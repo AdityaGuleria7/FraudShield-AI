@@ -8,6 +8,7 @@ from app.audit.ledger import AuditLedger
 from app.fraud.evidence_engine import EvidenceEngine
 from app.fraud.pattern_engine import FraudPatternEngine
 from app.investigation.case_builder import InvestigationCaseBuilder
+from app.data_quality.validator import DataQualityValidator
 
 
 class FraudShieldOrchestrator:
@@ -19,6 +20,7 @@ class FraudShieldOrchestrator:
         self.pattern_engine = FraudPatternEngine()
         self.evidence_engine = EvidenceEngine()
         self.case_builder = InvestigationCaseBuilder()
+        self.data_quality_validator = DataQualityValidator()
         self.fraud_pattern_analyst = FraudPatternAnalystAgent()
         self.fraud_pattern_reviewer = FraudPatternReviewerAgent()
 
@@ -69,9 +71,39 @@ class FraudShieldOrchestrator:
             },
         )
 
-        # STAGE 3 — FRAUD PATTERN DETECTION
+        # STAGE 3 — DATA QUALITY GATE
 
         transactions = data.get("transactions", [])
+
+        data_quality = self.data_quality_validator.validate(
+            transactions
+        )
+
+        self.audit_ledger.record(
+            agent_id="DATA_QUALITY_001",
+            agent_role="Data Quality Validator",
+            task_id=task_id,
+            action="DATA_QUALITY_VALIDATION",
+            status=data_quality["status"],
+            confidence=(
+                data_quality["quality_score"] / 100
+            ),
+            data=data_quality,
+        )
+
+        if data_quality["status"] == "REJECT":
+            return {
+                "analysis": analysis,
+                "review": review,
+                "data_quality": data_quality,
+                "pattern_analysis": None,
+                "pattern_review": None,
+                "pattern_findings": [],
+                "evidence_assessment": None,
+                "investigation_case": None,
+            }
+
+        # STAGE 4 — FRAUD PATTERN DETECTION
 
         velocity_findings = self.pattern_engine.detect_velocity(
             transactions
