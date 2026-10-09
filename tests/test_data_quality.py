@@ -138,3 +138,18 @@ def test_unexpected_fields_are_detected():
         issue["type"] == "UNEXPECTED_FIELD"
         for issue in result["issues"]
     )
+
+
+def test_transaction_amount_above_maximum_is_rejected():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    transaction["amount"] = 1_000_001
+
+    result = validator.validate([transaction])
+
+    assert result["status"] == "REJECT"
+    assert any(
+        issue["type"] == "AMOUNT_ABOVE_MAXIMUM"
+        for issue in result["issues"]
+    )

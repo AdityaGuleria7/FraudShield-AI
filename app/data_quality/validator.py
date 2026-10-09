@@ -17,6 +17,8 @@ class DataQualityValidator:
 
     VALID_COUNTRIES = {"IN", "US", "GB", "SG"}
     OPTIONAL_FIELDS = {"fraud_scenario"}
+    MIN_TRANSACTION_AMOUNT = 0
+    MAX_TRANSACTION_AMOUNT = 1_000_000
 
     def validate(self, transactions: list[dict[str, Any]]) -> dict[str, Any]:
         issues: list[dict[str, Any]] = []
@@ -84,12 +86,22 @@ class DataQualityValidator:
                     }
                 )
                 transaction_valid = False
-            elif transaction["amount"] < 0:
+            elif transaction["amount"] < self.MIN_TRANSACTION_AMOUNT:
                 issues.append(
                     {
                         "type": "INVALID_AMOUNT",
                         "transaction_index": index,
                         "value": transaction["amount"],
+                    }
+                )
+                transaction_valid = False
+            elif transaction["amount"] > self.MAX_TRANSACTION_AMOUNT:
+                issues.append(
+                    {
+                        "type": "AMOUNT_ABOVE_MAXIMUM",
+                        "transaction_index": index,
+                        "value": transaction["amount"],
+                        "maximum": self.MAX_TRANSACTION_AMOUNT,
                     }
                 )
                 transaction_valid = False
