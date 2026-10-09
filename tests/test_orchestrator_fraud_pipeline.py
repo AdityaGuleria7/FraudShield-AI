@@ -86,3 +86,48 @@ def test_orchestrator_detects_impossible_travel(tmp_path):
 
     assert result["pattern_analysis"].status == "CONDITIONAL_PASS"
     assert result["pattern_review"].status == "PASS"
+
+
+def test_orchestrator_detects_account_takeover(tmp_path):
+    from app.core.orchestrator import FraudShieldOrchestrator
+
+    transactions = [
+        {
+            "transaction_id": "TX-ATO-001",
+            "account_id": "ACC-ATO-001",
+            "device_id": "DEV-NEW-ATO",
+            "ip_address": "10.10.10.99",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 85000.00,
+            "timestamp": "2026-01-05T10:00:00+00:00",
+            "is_fraud": True,
+        }
+    ]
+
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit_ledger.jsonl")
+    )
+
+    result = orchestrator.run(
+        task_id="ATO-ORCH-001",
+        data={
+            "transactions": transactions,
+        },
+    )
+
+    account_takeover_findings = [
+        finding
+        for finding in result["pattern_findings"]
+        if finding["pattern"] == "ACCOUNT_TAKEOVER"
+    ]
+
+    assert len(account_takeover_findings) == 1
+    assert (
+        account_takeover_findings[0]["account_id"]
+        == "ACC-ATO-001"
+    )
+
+    assert result["pattern_analysis"].status == "CONDITIONAL_PASS"
+    assert result["pattern_review"].status == "PASS"
+    assert result["pattern_review"].approved_for_next_stage is True

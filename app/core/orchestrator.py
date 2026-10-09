@@ -85,10 +85,17 @@ class FraudShieldOrchestrator:
             )
         )
 
+        account_takeover_findings = (
+            self.pattern_engine.detect_account_takeover(
+                transactions
+            )
+        )
+
         pattern_findings = (
             velocity_findings
             + new_device_findings
             + impossible_travel_findings
+            + account_takeover_findings
         )
 
         # STAGE 4 — FRAUD PATTERN ANALYST
