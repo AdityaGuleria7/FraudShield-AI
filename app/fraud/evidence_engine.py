@@ -49,6 +49,20 @@ class EvidenceEngine:
             if finding.get("pattern") in self.PATTERN_WEIGHTS
         ]
 
+        deterministic_transaction_ids = {
+            finding.get("transaction_id")
+            for finding in recognized_findings
+            if finding.get("transaction_id")
+        }
+
+        ml_corroboration = sorted(
+            {
+                finding.get("transaction_id")
+                for finding in approved_ml_findings
+                if finding.get("transaction_id") in deterministic_transaction_ids
+            }
+        )
+
         # Identify findings that refer to the same transaction.
         # Multiple patterns on one transaction are not automatically
         # independent evidence streams.
@@ -179,6 +193,7 @@ class EvidenceEngine:
             "evidence_count": len(findings),
             "ml_evidence_count": len(ml_findings),
             "approved_ml_evidence_count": len(approved_ml_findings),
+            "ml_corroboration": ml_corroboration,
             "overlapping_transactions": overlapping_transactions,
             "evidence_quality": evidence_quality,
             "evidence_summary": evidence_summary,
