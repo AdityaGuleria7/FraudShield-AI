@@ -235,6 +235,7 @@ class EvidenceEngine:
             "risk_score": score,
             "risk_level": risk_level,
             "patterns": unique_patterns,
+            "independent_evidence_streams": len(unique_patterns),
             "evidence_count": len(findings),
             "ml_evidence_count": len(ml_findings),
             "approved_ml_evidence_count": len(approved_ml_findings),
