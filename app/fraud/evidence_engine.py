@@ -55,13 +55,29 @@ class EvidenceEngine:
             if finding.get("transaction_id")
         }
 
+        corroborating_ml_findings = [
+            finding
+            for finding in approved_ml_findings
+            if finding.get("predicted_fraud") is True
+            and finding.get("transaction_id") in deterministic_transaction_ids
+        ]
+
         ml_corroboration = sorted(
             {
                 finding.get("transaction_id")
-                for finding in approved_ml_findings
-                if finding.get("transaction_id") in deterministic_transaction_ids
+                for finding in corroborating_ml_findings
             }
         )
+
+        if not corroborating_ml_findings:
+            ml_corroboration_quality = "NONE"
+        elif any(
+            float(finding.get("fraud_probability", 0.0)) >= 0.80
+            for finding in corroborating_ml_findings
+        ):
+            ml_corroboration_quality = "STRONG"
+        else:
+            ml_corroboration_quality = "WEAK"
 
         # Identify findings that refer to the same transaction.
         # Multiple patterns on one transaction are not automatically
@@ -194,6 +210,7 @@ class EvidenceEngine:
             "ml_evidence_count": len(ml_findings),
             "approved_ml_evidence_count": len(approved_ml_findings),
             "ml_corroboration": ml_corroboration,
+            "ml_corroboration_quality": ml_corroboration_quality,
             "overlapping_transactions": overlapping_transactions,
             "evidence_quality": evidence_quality,
             "evidence_summary": evidence_summary,
