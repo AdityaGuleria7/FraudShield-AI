@@ -175,3 +175,48 @@ def test_orchestrator_returns_evidence_assessment(tmp_path):
         assessment["decision"]
         == "REQUIRES_FURTHER_INVESTIGATION"
     )
+
+
+def test_orchestrator_builds_investigation_case(tmp_path):
+
+    transactions = [
+        {
+            "transaction_id": "TX-CASE-001",
+            "account_id": "ACC-CASE-001",
+            "device_id": "DEV-CASE-NEW",
+            "ip_address": "10.50.50.50",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 85000.00,
+            "timestamp": "2026-01-07T10:00:00+00:00",
+            "is_fraud": True,
+        }
+    ]
+
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit_ledger.jsonl")
+    )
+
+    result = orchestrator.run(
+        task_id="CASE-ORCH-001",
+        data={
+            "transactions": transactions,
+        },
+    )
+
+    case = result["investigation_case"]
+
+    assert case["case_id"].startswith("CASE-")
+    assert case["task_id"] == "CASE-ORCH-001"
+    assert case["status"] == "OPEN_FOR_INVESTIGATION"
+    assert case["risk_score"] == 47
+    assert case["risk_level"] == "MEDIUM"
+    assert case["decision"] == "REQUIRES_FURTHER_INVESTIGATION"
+    assert case["patterns"] == [
+        "ACCOUNT_TAKEOVER",
+        "NEW_DEVICE_HIGH_VALUE",
+    ]
+    assert case["evidence_quality"] == "STRONG"
+    assert case["required_actions"] == [
+        "Investigate supporting evidence."
+    ]

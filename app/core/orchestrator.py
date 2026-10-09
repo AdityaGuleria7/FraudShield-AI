@@ -7,6 +7,7 @@ from app.agents.guardians.fraud_pattern_reviewer import (
 from app.audit.ledger import AuditLedger
 from app.fraud.evidence_engine import EvidenceEngine
 from app.fraud.pattern_engine import FraudPatternEngine
+from app.investigation.case_builder import InvestigationCaseBuilder
 
 
 class FraudShieldOrchestrator:
@@ -17,6 +18,7 @@ class FraudShieldOrchestrator:
 
         self.pattern_engine = FraudPatternEngine()
         self.evidence_engine = EvidenceEngine()
+        self.case_builder = InvestigationCaseBuilder()
         self.fraud_pattern_analyst = FraudPatternAnalystAgent()
         self.fraud_pattern_reviewer = FraudPatternReviewerAgent()
 
@@ -116,7 +118,32 @@ class FraudShieldOrchestrator:
             data=evidence_assessment,
         )
 
-        # STAGE 5 — FRAUD PATTERN ANALYST
+        # STAGE 5 — INVESTIGATION CASE BUILDER
+
+        investigation_case = self.case_builder.build(
+            task_id=task_id,
+            evidence_assessment=evidence_assessment,
+            findings=pattern_findings,
+        )
+
+        self.audit_ledger.record(
+            agent_id="INVESTIGATION_CASE_BUILDER_001",
+            agent_role="Investigation Case Builder",
+            task_id=task_id,
+            action="INVESTIGATION_CASE_BUILT",
+            status="PASS",
+            confidence=1.0,
+            data={
+                "case_id": investigation_case["case_id"],
+                "status": investigation_case["status"],
+                "risk_score": investigation_case["risk_score"],
+                "risk_level": investigation_case["risk_level"],
+                "decision": investigation_case["decision"],
+                "patterns": investigation_case["patterns"],
+            },
+        )
+
+        # STAGE 6 — FRAUD PATTERN ANALYST
 
         pattern_analysis = self.fraud_pattern_analyst.analyze(
             task_id=task_id,
@@ -173,4 +200,5 @@ class FraudShieldOrchestrator:
             "pattern_review": pattern_review,
             "pattern_findings": pattern_findings,
             "evidence_assessment": evidence_assessment,
+            "investigation_case": investigation_case,
         }
