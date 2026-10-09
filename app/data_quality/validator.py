@@ -119,7 +119,20 @@ class DataQualityValidator:
 
             # Timestamp validation
             try:
-                datetime.fromisoformat(transaction["timestamp"])
+                parsed_timestamp = datetime.fromisoformat(
+                    transaction["timestamp"]
+                )
+
+                if parsed_timestamp.tzinfo is None:
+                    issues.append(
+                        {
+                            "type": "NAIVE_TIMESTAMP",
+                            "transaction_index": index,
+                            "value": transaction["timestamp"],
+                        }
+                    )
+                    transaction_valid = False
+
             except (TypeError, ValueError):
                 issues.append(
                     {

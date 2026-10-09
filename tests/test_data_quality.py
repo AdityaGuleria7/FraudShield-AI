@@ -153,3 +153,18 @@ def test_transaction_amount_above_maximum_is_rejected():
         issue["type"] == "AMOUNT_ABOVE_MAXIMUM"
         for issue in result["issues"]
     )
+
+
+def test_timestamp_without_timezone_is_rejected():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    transaction["timestamp"] = "2026-01-01T10:00:00"
+
+    result = validator.validate([transaction])
+
+    assert result["status"] == "REJECT"
+    assert any(
+        issue["type"] == "NAIVE_TIMESTAMP"
+        for issue in result["issues"]
+    )
