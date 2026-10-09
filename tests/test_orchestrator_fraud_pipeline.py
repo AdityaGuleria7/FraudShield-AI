@@ -163,8 +163,8 @@ def test_orchestrator_returns_evidence_assessment(tmp_path):
 
     assessment = result["evidence_assessment"]
 
-    assert assessment["risk_score"] == 60
-    assert assessment["risk_level"] == "HIGH"
+    assert assessment["risk_score"] == 47
+    assert assessment["risk_level"] == "MEDIUM"
     assert assessment["patterns"] == [
         "ACCOUNT_TAKEOVER",
         "NEW_DEVICE_HIGH_VALUE",

@@ -29,18 +29,58 @@ class EvidenceEngine:
             }
         )
 
-        score = sum(
-            self.PATTERN_WEIGHTS[pattern]
-            for pattern in unique_patterns
-        )
-
-        score = min(score, 100)
 
         recognized_findings = [
             finding
             for finding in findings
             if finding.get("pattern") in self.PATTERN_WEIGHTS
         ]
+
+        # Identify findings that refer to the same transaction.
+        # Multiple patterns on one transaction are not automatically
+        # independent evidence streams.
+        transaction_pattern_map: dict[str, set[str]] = {}
+
+        for finding in recognized_findings:
+            transaction_id = finding.get("transaction_id")
+
+            if transaction_id:
+                transaction_pattern_map.setdefault(
+                    transaction_id,
+                    set(),
+                ).add(finding["pattern"])
+
+        overlapping_transactions = {
+            transaction_id: sorted(patterns)
+            for transaction_id, patterns in transaction_pattern_map.items()
+            if len(patterns) > 1
+        }
+
+        # Correlation-aware scoring:
+        # independent patterns receive full weight.
+        # For patterns tied to the same transaction, the highest-weight
+        # pattern receives full weight and additional patterns receive
+        # 50% of their normal weight as corroborating evidence.
+        score = sum(
+            self.PATTERN_WEIGHTS[pattern]
+            for pattern in unique_patterns
+        )
+
+        for patterns in overlapping_transactions.values():
+            overlap_weights = sorted(
+                (
+                    self.PATTERN_WEIGHTS[pattern]
+                    for pattern in patterns
+                ),
+                reverse=True,
+            )
+
+            # The highest-weight signal remains fully counted.
+            # Reduce each additional correlated signal by 50%.
+            for weight in overlap_weights[1:]:
+                score -= weight * 0.5
+
+        score = min(int(score), 100)
 
         if not recognized_findings:
             evidence_quality = "NONE"
@@ -124,6 +164,7 @@ class EvidenceEngine:
             "risk_level": risk_level,
             "patterns": unique_patterns,
             "evidence_count": len(findings),
+            "overlapping_transactions": overlapping_transactions,
             "evidence_quality": evidence_quality,
             "evidence_summary": evidence_summary,
             "decision": (

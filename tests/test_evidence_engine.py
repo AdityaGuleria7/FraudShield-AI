@@ -1,6 +1,55 @@
 from app.fraud.evidence_engine import EvidenceEngine
 
 
+def test_overlapping_patterns_are_identified_by_transaction():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC5000",
+            "transaction_id": "TX5000",
+        },
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "account_id": "ACC5000",
+            "transaction_id": "TX5000",
+        },
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["overlapping_transactions"] == {
+        "TX5000": [
+            "ACCOUNT_TAKEOVER",
+            "NEW_DEVICE_HIGH_VALUE",
+        ]
+    }
+
+
+def test_patterns_on_different_transactions_are_independent():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC5000",
+            "transaction_id": "TX5001",
+        },
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "account_id": "ACC5000",
+            "transaction_id": "TX5002",
+        },
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["overlapping_transactions"] == {}
+
+
 def test_no_findings_produce_low_risk():
 
     engine = EvidenceEngine()
@@ -306,3 +355,25 @@ def test_complete_impossible_travel_evidence_is_strong():
     assessment = engine.assess(findings)
 
     assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_overlapping_patterns_do_not_receive_full_combined_weight():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC6000",
+            "transaction_id": "TX6000",
+        },
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "account_id": "ACC6000",
+            "transaction_id": "TX6000",
+        },
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 47
