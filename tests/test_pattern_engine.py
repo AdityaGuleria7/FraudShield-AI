@@ -58,3 +58,35 @@ def test_detect_new_device_high_value():
     assert finding["account_id"] == "ACC8888"
     assert finding["device_id"] == "DEV-NEW-999"
     assert finding["amount"] == 95000.00
+
+
+def test_detect_impossible_travel():
+
+    transactions = [
+        {
+            "transaction_id": "TX-TRAVEL-001",
+            "account_id": "ACC7000",
+            "country": "IN",
+            "device_id": "DEV-7000",
+            "timestamp": "2026-01-01T10:00:00+00:00",
+            "amount": 1000.0,
+        },
+        {
+            "transaction_id": "TX-TRAVEL-002",
+            "account_id": "ACC7000",
+            "country": "US",
+            "device_id": "DEV-7000",
+            "timestamp": "2026-01-01T11:00:00+00:00",
+            "amount": 1200.0,
+        },
+    ]
+
+    engine = FraudPatternEngine()
+
+    findings = engine.detect_impossible_travel(
+        transactions
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["pattern"] == "IMPOSSIBLE_TRAVEL"
+    assert findings[0]["account_id"] == "ACC7000"

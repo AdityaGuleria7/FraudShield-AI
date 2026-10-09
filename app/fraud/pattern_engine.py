@@ -1,8 +1,15 @@
 from datetime import datetime
 from typing import Any
 
+from app.fraud.impossible_travel import ImpossibleTravelDetector
+
 
 class FraudPatternEngine:
+
+    def __init__(self):
+        self.impossible_travel_detector = (
+            ImpossibleTravelDetector()
+        )
 
     def detect_velocity(
         self,
@@ -120,3 +127,12 @@ class FraudPatternEngine:
             devices.add(device_id)
 
         return findings
+
+    def detect_impossible_travel(
+        self,
+        transactions: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+
+        return self.impossible_travel_detector.detect(
+            transactions
+        )
