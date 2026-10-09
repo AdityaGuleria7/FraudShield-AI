@@ -253,3 +253,20 @@ def test_ml_pipeline_temporal_validation_uses_future_transactions_as_holdout():
     )
 
     assert latest_train_timestamp < earliest_validation_timestamp
+
+
+def test_ml_pipeline_rejects_missing_timestamp():
+    feature_vectors = make_feature_vectors()
+    transactions = make_transactions()
+
+    transactions[0].pop("timestamp")
+
+    try:
+        MLPipeline().run(feature_vectors, transactions)
+    except ValueError as exc:
+        assert "timestamp" in str(exc).lower()
+        return
+
+    raise AssertionError(
+        "Transaction without timestamp was incorrectly accepted"
+    )
