@@ -47,7 +47,10 @@ def make_transactions():
         transactions.append(
             {
                 "transaction_id": f"TX{index:03d}",
-                "is_fraud": index > 10,
+                "timestamp": (
+                    f"2026-01-{index:02d}T10:00:00+00:00"
+                ),
+                "is_fraud": index % 2 == 0,
             }
         )
 
@@ -118,3 +121,135 @@ def test_ml_evidence_builder_rejects_in_sample_prediction_evidence():
     raise AssertionError(
         "In-sample prediction was incorrectly accepted as ML evidence"
     )
+
+
+def test_ml_pipeline_temporal_validation_uses_future_transactions_as_holdout():
+    feature_vectors = make_feature_vectors()
+
+    transactions = [
+        {
+            "transaction_id": "TX003",
+            "timestamp": "2026-01-03T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX001",
+            "timestamp": "2026-01-01T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX004",
+            "timestamp": "2026-01-04T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX002",
+            "timestamp": "2026-01-02T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX005",
+            "timestamp": "2026-01-05T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX006",
+            "timestamp": "2026-01-06T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX007",
+            "timestamp": "2026-01-07T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX008",
+            "timestamp": "2026-01-08T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX009",
+            "timestamp": "2026-01-09T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX010",
+            "timestamp": "2026-01-10T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX011",
+            "timestamp": "2026-01-11T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX012",
+            "timestamp": "2026-01-12T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX013",
+            "timestamp": "2026-01-13T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX014",
+            "timestamp": "2026-01-14T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX015",
+            "timestamp": "2026-01-15T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX016",
+            "timestamp": "2026-01-16T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX017",
+            "timestamp": "2026-01-17T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX018",
+            "timestamp": "2026-01-18T10:00:00+00:00",
+            "is_fraud": True,
+        },
+        {
+            "transaction_id": "TX019",
+            "timestamp": "2026-01-19T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX020",
+            "timestamp": "2026-01-20T10:00:00+00:00",
+            "is_fraud": True,
+        },
+    ]
+
+    result = MLPipeline().run(feature_vectors, transactions)
+
+    train_ids = set(result["train_transaction_ids"])
+    validation_ids = set(result["validation_transaction_ids"])
+
+    assert train_ids
+    assert validation_ids
+
+    timestamps = {
+        transaction["transaction_id"]: transaction["timestamp"]
+        for transaction in transactions
+    }
+
+    latest_train_timestamp = max(
+        timestamps[transaction_id]
+        for transaction_id in train_ids
+    )
+
+    earliest_validation_timestamp = min(
+        timestamps[transaction_id]
+        for transaction_id in validation_ids
+    )
+
+    assert latest_train_timestamp < earliest_validation_timestamp

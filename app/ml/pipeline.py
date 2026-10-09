@@ -1,7 +1,5 @@
 from typing import Any
 
-from sklearn.model_selection import train_test_split
-
 from app.ml.baseline import MLBaselineModel
 from app.ml.dataset import FraudDatasetBuilder
 from app.ml.evaluator import MLEvaluator
@@ -30,33 +28,43 @@ class MLPipeline:
             for transaction in transactions
         ]
 
-        class_counts = {
-            label: dataset["y"].count(label)
-            for label in set(dataset["y"])
-        }
-
-        if len(class_counts) < 2 or min(class_counts.values()) < 2:
+        if len(dataset["y"]) < 5:
             raise ValueError(
-                "Dataset is too small for a stratified holdout split; "
-                "each class requires at least 2 samples."
+                "Dataset is too small for a temporal holdout split."
             )
 
+        timestamp_by_index = {}
+
+        for index, transaction in enumerate(transactions):
+            timestamp = transaction.get("timestamp")
+
+            if timestamp is None:
+                raise ValueError(
+                    "Every transaction must contain a timestamp for "
+                    "temporal holdout validation."
+                )
+
+            timestamp_by_index[index] = timestamp
+
+        ordered_indices = sorted(
+            range(len(dataset["y"])),
+            key=lambda index: timestamp_by_index[index],
+        )
+
         validation_size = max(
-            len(class_counts),
+            1,
             int(len(dataset["y"]) * 0.20 + 0.999999),
         )
 
         if validation_size >= len(dataset["y"]):
             raise ValueError(
-                "Dataset is too small for a stratified holdout split."
+                "Dataset is too small for a temporal holdout split."
             )
 
-        train_indices, validation_indices = train_test_split(
-            list(range(len(dataset["y"]))),
-            test_size=validation_size,
-            random_state=42,
-            stratify=dataset["y"],
-        )
+        split_index = len(ordered_indices) - validation_size
+
+        train_indices = ordered_indices[:split_index]
+        validation_indices = ordered_indices[split_index:]
 
         X_train = [dataset["X"][index] for index in train_indices]
         y_train = [dataset["y"][index] for index in train_indices]

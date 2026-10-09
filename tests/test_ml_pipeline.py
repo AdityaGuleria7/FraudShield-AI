@@ -2,35 +2,27 @@ from app.ml.pipeline import MLPipeline
 
 
 def sample_data():
-    features = {
-        "TX001": {
-            "transaction_amount": 1000.0,
-            "transactions_last_5m": 0,
-            "account_unique_device_count": 1,
-        },
-        "TX002": {
-            "transaction_amount": 5000.0,
-            "transactions_last_5m": 3,
-            "account_unique_device_count": 2,
-        },
-        "TX003": {
-            "transaction_amount": 1200.0,
-            "transactions_last_5m": 0,
-            "account_unique_device_count": 1,
-        },
-        "TX004": {
-            "transaction_amount": 9000.0,
-            "transactions_last_5m": 5,
-            "account_unique_device_count": 3,
-        },
-    }
+    features = {}
 
-    transactions = [
-        {"transaction_id": "TX001", "is_fraud": False},
-        {"transaction_id": "TX002", "is_fraud": True},
-        {"transaction_id": "TX003", "is_fraud": False},
-        {"transaction_id": "TX004", "is_fraud": True},
-    ]
+    for index in range(1, 11):
+        features[f"TX{index:03d}"] = {
+            "transaction_amount": float(1000 + index * 500),
+            "transactions_last_5m": index % 4,
+            "account_unique_device_count": 1 + (index % 3),
+        }
+
+    transactions = []
+
+    for index in range(1, 11):
+        transactions.append(
+            {
+                "transaction_id": f"TX{index:03d}",
+                "timestamp": (
+                    f"2026-01-{index:02d}T10:00:00+00:00"
+                ),
+                "is_fraud": index % 2 == 0,
+            }
+        )
 
     return features, transactions
 
@@ -50,8 +42,8 @@ def test_pipeline_trains_evaluates_and_validates_model():
         "transactions_last_5m",
     ]
 
-    assert len(result["predictions"]) == 4
-    assert len(result["probabilities"]) == 4
+    assert len(result["predictions"]) == 10
+    assert len(result["probabilities"]) == 10
 
     assert "precision" in result["metrics"]
     assert "recall" in result["metrics"]
@@ -70,9 +62,9 @@ def test_pipeline_returns_dataset_information():
 
     result = pipeline.run(features, transactions)
 
-    assert result["dataset_size"] == 4
-    assert result["fraud_count"] == 2
-    assert result["non_fraud_count"] == 2
+    assert result["dataset_size"] == 10
+    assert result["fraud_count"] == 5
+    assert result["non_fraud_count"] == 5
 
 
 def test_pipeline_returns_transaction_ids():
@@ -87,4 +79,10 @@ def test_pipeline_returns_transaction_ids():
         "TX002",
         "TX003",
         "TX004",
+        "TX005",
+        "TX006",
+        "TX007",
+        "TX008",
+        "TX009",
+        "TX010",
     ]
