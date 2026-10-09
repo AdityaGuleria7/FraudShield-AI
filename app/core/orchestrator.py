@@ -79,9 +79,16 @@ class FraudShieldOrchestrator:
             )
         )
 
+        impossible_travel_findings = (
+            self.pattern_engine.detect_impossible_travel(
+                transactions
+            )
+        )
+
         pattern_findings = (
             velocity_findings
             + new_device_findings
+            + impossible_travel_findings
         )
 
         # STAGE 4 — FRAUD PATTERN ANALYST
