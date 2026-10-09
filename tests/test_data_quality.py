@@ -123,3 +123,18 @@ def test_missing_field_metrics_are_reported():
 
     assert result["missing_field_count"] == 1
     assert result["missing_field_rate"] == 1.0
+
+
+def test_unexpected_fields_are_detected():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    transaction["unexpected_field"] = "schema-drift"
+
+    result = validator.validate([transaction])
+
+    assert result["status"] == "REJECT"
+    assert any(
+        issue["type"] == "UNEXPECTED_FIELD"
+        for issue in result["issues"]
+    )

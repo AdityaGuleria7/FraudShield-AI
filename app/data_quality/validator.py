@@ -16,6 +16,7 @@ class DataQualityValidator:
     }
 
     VALID_COUNTRIES = {"IN", "US", "GB", "SG"}
+    OPTIONAL_FIELDS = {"fraud_scenario"}
 
     def validate(self, transactions: list[dict[str, Any]]) -> dict[str, Any]:
         issues: list[dict[str, Any]] = []
@@ -28,6 +29,8 @@ class DataQualityValidator:
 
             # Required-field validation
             missing_fields = self.REQUIRED_FIELDS - transaction.keys()
+            allowed_fields = self.REQUIRED_FIELDS | self.OPTIONAL_FIELDS
+            unexpected_fields = transaction.keys() - allowed_fields
 
             missing_field_count += len(missing_fields)
 
@@ -35,6 +38,17 @@ class DataQualityValidator:
                 issues.append(
                     {
                         "type": "MISSING_FIELD",
+                        "transaction_index": index,
+                        "field": field,
+                    }
+                )
+                transaction_valid = False
+
+            # Schema consistency validation
+            for field in sorted(unexpected_fields):
+                issues.append(
+                    {
+                        "type": "UNEXPECTED_FIELD",
                         "transaction_index": index,
                         "field": field,
                     }
