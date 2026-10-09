@@ -168,3 +168,18 @@ def test_timestamp_without_timezone_is_rejected():
         issue["type"] == "NAIVE_TIMESTAMP"
         for issue in result["issues"]
     )
+
+
+def test_invalid_ip_address_is_rejected():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    transaction["ip_address"] = "999.999.999.999"
+
+    result = validator.validate([transaction])
+
+    assert result["status"] == "REJECT"
+    assert any(
+        issue["type"] == "INVALID_IP_ADDRESS"
+        for issue in result["issues"]
+    )

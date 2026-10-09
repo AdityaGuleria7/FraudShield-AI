@@ -1,4 +1,5 @@
 from datetime import datetime
+from ipaddress import ip_address
 from typing import Any
 
 
@@ -102,6 +103,19 @@ class DataQualityValidator:
                         "transaction_index": index,
                         "value": transaction["amount"],
                         "maximum": self.MAX_TRANSACTION_AMOUNT,
+                    }
+                )
+                transaction_valid = False
+
+            # IP address validation
+            try:
+                ip_address(transaction["ip_address"])
+            except ValueError:
+                issues.append(
+                    {
+                        "type": "INVALID_IP_ADDRESS",
+                        "transaction_index": index,
+                        "value": transaction["ip_address"],
                     }
                 )
                 transaction_valid = False
