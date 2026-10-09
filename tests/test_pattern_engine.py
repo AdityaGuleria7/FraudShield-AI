@@ -1,0 +1,60 @@
+from app.data.transaction_generator import TransactionGenerator
+from app.fraud.pattern_engine import FraudPatternEngine
+from app.fraud.scenario_generator import FraudScenarioGenerator
+
+
+def test_detect_velocity_attack():
+
+    transactions = TransactionGenerator(seed=42).generate(10)
+
+    transactions = FraudScenarioGenerator().inject_velocity_attack(
+        transactions
+    )
+
+    engine = FraudPatternEngine()
+
+    findings = engine.detect_velocity(
+        transactions,
+        window_minutes=10,
+        minimum_transactions=5,
+    )
+
+    velocity_findings = [
+        finding
+        for finding in findings
+        if finding["pattern"] == "VELOCITY_ATTACK"
+    ]
+
+    assert len(velocity_findings) == 1
+    assert velocity_findings[0]["account_id"] == "ACC9999"
+    assert velocity_findings[0]["transaction_count"] == 5
+
+
+def test_detect_new_device_high_value():
+
+    transactions = TransactionGenerator(seed=42).generate(10)
+
+    transactions = FraudScenarioGenerator().inject_new_device_high_value(
+        transactions
+    )
+
+    engine = FraudPatternEngine()
+
+    findings = engine.detect_new_device_high_value(
+        transactions,
+        high_value_threshold=50000,
+    )
+
+    device_findings = [
+        finding
+        for finding in findings
+        if finding["pattern"] == "NEW_DEVICE_HIGH_VALUE"
+    ]
+
+    assert len(device_findings) == 1
+
+    finding = device_findings[0]
+
+    assert finding["account_id"] == "ACC8888"
+    assert finding["device_id"] == "DEV-NEW-999"
+    assert finding["amount"] == 95000.00
