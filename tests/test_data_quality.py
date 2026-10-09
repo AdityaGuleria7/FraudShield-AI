@@ -183,3 +183,18 @@ def test_invalid_ip_address_is_rejected():
         issue["type"] == "INVALID_IP_ADDRESS"
         for issue in result["issues"]
     )
+
+
+def test_amount_with_invalid_type_is_rejected():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    transaction["amount"] = "1500"
+
+    result = validator.validate([transaction])
+
+    assert result["status"] == "REJECT"
+    assert any(
+        issue["type"] == "INVALID_AMOUNT"
+        for issue in result["issues"]
+    )
