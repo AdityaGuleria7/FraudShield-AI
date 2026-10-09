@@ -111,3 +111,15 @@ def test_invalid_timestamp_is_rejected():
         issue["type"] == "INVALID_TIMESTAMP"
         for issue in result["issues"]
     )
+
+
+def test_missing_field_metrics_are_reported():
+    validator = DataQualityValidator()
+
+    transaction = valid_transaction()
+    del transaction["account_id"]
+
+    result = validator.validate([transaction])
+
+    assert result["missing_field_count"] == 1
+    assert result["missing_field_rate"] == 1.0

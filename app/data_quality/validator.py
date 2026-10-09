@@ -20,6 +20,7 @@ class DataQualityValidator:
     def validate(self, transactions: list[dict[str, Any]]) -> dict[str, Any]:
         issues: list[dict[str, Any]] = []
         valid_transactions = 0
+        missing_field_count = 0
         seen_transaction_ids: set[str] = set()
 
         for index, transaction in enumerate(transactions):
@@ -27,6 +28,8 @@ class DataQualityValidator:
 
             # Required-field validation
             missing_fields = self.REQUIRED_FIELDS - transaction.keys()
+
+            missing_field_count += len(missing_fields)
 
             for field in sorted(missing_fields):
                 issues.append(
@@ -120,5 +123,11 @@ class DataQualityValidator:
             "quality_score": quality_score,
             "total_transactions": total_transactions,
             "valid_transactions": valid_transactions,
+            "missing_field_count": missing_field_count,
+            "missing_field_rate": (
+                missing_field_count / total_transactions
+                if total_transactions
+                else 0.0
+            ),
             "issues": issues,
         }
