@@ -5,6 +5,7 @@ from app.agents.guardians.fraud_pattern_reviewer import (
     FraudPatternReviewerAgent,
 )
 from app.audit.ledger import AuditLedger
+from app.fraud.evidence_engine import EvidenceEngine
 from app.fraud.pattern_engine import FraudPatternEngine
 
 
@@ -15,6 +16,7 @@ class FraudShieldOrchestrator:
         self.data_reviewer = DataReviewerAgent()
 
         self.pattern_engine = FraudPatternEngine()
+        self.evidence_engine = EvidenceEngine()
         self.fraud_pattern_analyst = FraudPatternAnalystAgent()
         self.fraud_pattern_reviewer = FraudPatternReviewerAgent()
 
@@ -98,7 +100,23 @@ class FraudShieldOrchestrator:
             + account_takeover_findings
         )
 
-        # STAGE 4 — FRAUD PATTERN ANALYST
+        # STAGE 4 — EVIDENCE CORRELATION
+
+        evidence_assessment = self.evidence_engine.assess(
+            pattern_findings
+        )
+
+        self.audit_ledger.record(
+            agent_id="EVIDENCE_ENGINE_001",
+            agent_role="Evidence Correlation Engine",
+            task_id=task_id,
+            action="EVIDENCE_CORRELATION",
+            status="PASS",
+            confidence=1.0,
+            data=evidence_assessment,
+        )
+
+        # STAGE 5 — FRAUD PATTERN ANALYST
 
         pattern_analysis = self.fraud_pattern_analyst.analyze(
             task_id=task_id,
@@ -154,4 +172,5 @@ class FraudShieldOrchestrator:
             "pattern_analysis": pattern_analysis,
             "pattern_review": pattern_review,
             "pattern_findings": pattern_findings,
+            "evidence_assessment": evidence_assessment,
         }

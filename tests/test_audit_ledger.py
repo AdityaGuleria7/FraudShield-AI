@@ -24,7 +24,7 @@ def test_audit_ledger_records_pipeline(tmp_path):
         encoding="utf-8"
     ).splitlines()
 
-    assert len(lines) == 4
+    assert len(lines) == 5
 
     events = [
         json.loads(line)
@@ -33,8 +33,9 @@ def test_audit_ledger_records_pipeline(tmp_path):
 
     assert events[0]["action"] == "DATA_ANALYSIS"
     assert events[1]["action"] == "GUARDIAN_REVIEW"
-    assert events[2]["action"] == "FRAUD_PATTERN_ANALYSIS"
-    assert events[3]["action"] == "FRAUD_PATTERN_GUARDIAN_REVIEW"
+    assert events[2]["action"] == "EVIDENCE_CORRELATION"
+    assert events[3]["action"] == "FRAUD_PATTERN_ANALYSIS"
+    assert events[4]["action"] == "FRAUD_PATTERN_GUARDIAN_REVIEW"
 
     assert all(
         event["task_id"] == "AUDIT-001"
@@ -45,3 +46,4 @@ def test_audit_ledger_records_pipeline(tmp_path):
     assert events[1]["status"] == "PASS"
     assert events[2]["status"] == "PASS"
     assert events[3]["status"] == "PASS"
+    assert events[4]["status"] == "PASS"

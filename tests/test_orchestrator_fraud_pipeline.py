@@ -131,3 +131,47 @@ def test_orchestrator_detects_account_takeover(tmp_path):
     assert result["pattern_analysis"].status == "CONDITIONAL_PASS"
     assert result["pattern_review"].status == "PASS"
     assert result["pattern_review"].approved_for_next_stage is True
+
+
+def test_orchestrator_returns_evidence_assessment(tmp_path):
+    from app.core.orchestrator import FraudShieldOrchestrator
+
+    transactions = [
+        {
+            "transaction_id": "TX-EVIDENCE-001",
+            "account_id": "ACC-EVIDENCE-001",
+            "device_id": "DEV-NEW-EVIDENCE",
+            "ip_address": "10.20.30.40",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 85000.00,
+            "timestamp": "2026-01-06T10:00:00+00:00",
+            "is_fraud": True,
+        }
+    ]
+
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit_ledger.jsonl")
+    )
+
+    result = orchestrator.run(
+        task_id="EVIDENCE-ORCH-001",
+        data={
+            "transactions": transactions,
+        },
+    )
+
+    assessment = result["evidence_assessment"]
+
+    assert assessment["risk_score"] == 60
+    assert assessment["risk_level"] == "HIGH"
+    assert assessment["patterns"] == [
+        "ACCOUNT_TAKEOVER",
+        "NEW_DEVICE_HIGH_VALUE",
+    ]
+    assert assessment["evidence_count"] == 2
+    assert assessment["evidence_quality"] == "STRONG"
+    assert (
+        assessment["decision"]
+        == "REQUIRES_FURTHER_INVESTIGATION"
+    )
