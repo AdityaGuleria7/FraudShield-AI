@@ -73,3 +73,18 @@ def test_pipeline_returns_dataset_information():
     assert result["dataset_size"] == 4
     assert result["fraud_count"] == 2
     assert result["non_fraud_count"] == 2
+
+
+def test_pipeline_returns_transaction_ids():
+    features, transactions = sample_data()
+
+    pipeline = MLPipeline()
+
+    result = pipeline.run(features, transactions)
+
+    assert result["transaction_ids"] == [
+        "TX001",
+        "TX002",
+        "TX003",
+        "TX004",
+    ]

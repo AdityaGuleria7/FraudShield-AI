@@ -36,8 +36,14 @@ class MLPipeline:
 
         validation = self.validation_gate.validate(metrics)
 
+        transaction_ids = [
+            transaction["transaction_id"]
+            for transaction in transactions
+        ]
+
         return {
             **training_result,
+            "transaction_ids": transaction_ids,
             "predictions": predictions,
             "probabilities": probabilities,
             "metrics": metrics,
