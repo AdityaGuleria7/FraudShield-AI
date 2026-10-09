@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from app.fraud.account_takeover import AccountTakeoverDetector
 from app.fraud.impossible_travel import ImpossibleTravelDetector
 
 
@@ -9,6 +10,9 @@ class FraudPatternEngine:
     def __init__(self):
         self.impossible_travel_detector = (
             ImpossibleTravelDetector()
+        )
+        self.account_takeover_detector = (
+            AccountTakeoverDetector()
         )
 
     def detect_velocity(
@@ -134,5 +138,14 @@ class FraudPatternEngine:
     ) -> list[dict[str, Any]]:
 
         return self.impossible_travel_detector.detect(
+            transactions
+        )
+
+    def detect_account_takeover(
+        self,
+        transactions: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+
+        return self.account_takeover_detector.detect(
             transactions
         )

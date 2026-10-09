@@ -90,3 +90,33 @@ def test_detect_impossible_travel():
     assert len(findings) == 1
     assert findings[0]["pattern"] == "IMPOSSIBLE_TRAVEL"
     assert findings[0]["account_id"] == "ACC7000"
+
+
+def test_detect_account_takeover():
+
+    transactions = [
+        {
+            "transaction_id": "TX-ATO-001",
+            "account_id": "ACC8000",
+            "device_id": "DEV-OLD",
+            "ip_address": "10.0.0.1",
+            "amount": 1000.0,
+        },
+        {
+            "transaction_id": "TX-ATO-002",
+            "account_id": "ACC8000",
+            "device_id": "DEV-NEW",
+            "ip_address": "10.0.0.99",
+            "amount": 95000.0,
+        },
+    ]
+
+    engine = FraudPatternEngine()
+
+    findings = engine.detect_account_takeover(
+        transactions
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["pattern"] == "ACCOUNT_TAKEOVER"
+    assert findings[0]["account_id"] == "ACC8000"
