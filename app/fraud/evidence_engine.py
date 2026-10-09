@@ -30,6 +30,19 @@ class EvidenceEngine:
         )
 
 
+        ml_findings = [
+            finding
+            for finding in findings
+            if finding.get("evidence_type") == "ml_model_prediction"
+        ]
+
+        approved_ml_findings = [
+            finding
+            for finding in ml_findings
+            if finding.get("model_approved") is True
+            and finding.get("validation_status") == "PASS"
+        ]
+
         recognized_findings = [
             finding
             for finding in findings
@@ -164,6 +177,8 @@ class EvidenceEngine:
             "risk_level": risk_level,
             "patterns": unique_patterns,
             "evidence_count": len(findings),
+            "ml_evidence_count": len(ml_findings),
+            "approved_ml_evidence_count": len(approved_ml_findings),
             "overlapping_transactions": overlapping_transactions,
             "evidence_quality": evidence_quality,
             "evidence_summary": evidence_summary,
