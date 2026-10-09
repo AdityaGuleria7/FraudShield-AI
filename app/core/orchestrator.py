@@ -1,6 +1,11 @@
 from app.agents.data_analyst import DataAnalystAgent
+from app.agents.fraud_pattern_analyst import FraudPatternAnalystAgent
 from app.agents.guardians.data_reviewer import DataReviewerAgent
+from app.agents.guardians.fraud_pattern_reviewer import (
+    FraudPatternReviewerAgent,
+)
 from app.audit.ledger import AuditLedger
+from app.fraud.pattern_engine import FraudPatternEngine
 
 
 class FraudShieldOrchestrator:
@@ -8,9 +13,16 @@ class FraudShieldOrchestrator:
     def __init__(self, audit_path: str = "audit_ledger.jsonl"):
         self.data_analyst = DataAnalystAgent()
         self.data_reviewer = DataReviewerAgent()
+
+        self.pattern_engine = FraudPatternEngine()
+        self.fraud_pattern_analyst = FraudPatternAnalystAgent()
+        self.fraud_pattern_reviewer = FraudPatternReviewerAgent()
+
         self.audit_ledger = AuditLedger(audit_path)
 
     def run(self, task_id: str, data: dict):
+
+        # STAGE 1 — DATA ANALYSIS
 
         analysis = self.data_analyst.analyze(
             task_id=task_id,
@@ -31,9 +43,9 @@ class FraudShieldOrchestrator:
             },
         )
 
-        review = self.data_reviewer.review(
-            analysis
-        )
+        # STAGE 2 — DATA ANALYST GUARDIAN
+
+        review = self.data_reviewer.review(analysis)
 
         self.audit_ledger.record(
             agent_id=review.agent_id,
@@ -47,11 +59,85 @@ class FraudShieldOrchestrator:
                 "evidence": review.evidence,
                 "issues": review.issues,
                 "critical_objections": review.critical_objections,
-                "approved_for_next_stage": review.approved_for_next_stage,
+                "approved_for_next_stage": (
+                    review.approved_for_next_stage
+                ),
+            },
+        )
+
+        # STAGE 3 — FRAUD PATTERN DETECTION
+
+        transactions = data.get("transactions", [])
+
+        velocity_findings = self.pattern_engine.detect_velocity(
+            transactions
+        )
+
+        new_device_findings = (
+            self.pattern_engine.detect_new_device_high_value(
+                transactions
+            )
+        )
+
+        pattern_findings = (
+            velocity_findings
+            + new_device_findings
+        )
+
+        # STAGE 4 — FRAUD PATTERN ANALYST
+
+        pattern_analysis = self.fraud_pattern_analyst.analyze(
+            task_id=task_id,
+            findings=pattern_findings,
+        )
+
+        self.audit_ledger.record(
+            agent_id=pattern_analysis.agent_id,
+            agent_role=pattern_analysis.agent_role,
+            task_id=pattern_analysis.task_id,
+            action="FRAUD_PATTERN_ANALYSIS",
+            status=pattern_analysis.status,
+            confidence=pattern_analysis.confidence,
+            data={
+                "findings": pattern_analysis.findings,
+                "evidence": pattern_analysis.evidence,
+                "issues": pattern_analysis.issues,
+                "required_actions": (
+                    pattern_analysis.required_actions
+                ),
+            },
+        )
+
+        # STAGE 5 — FRAUD PATTERN GUARDIAN
+
+        pattern_review = self.fraud_pattern_reviewer.review(
+            pattern_analysis
+        )
+
+        self.audit_ledger.record(
+            agent_id=pattern_review.agent_id,
+            agent_role=pattern_review.agent_role,
+            task_id=pattern_review.task_id,
+            action="FRAUD_PATTERN_GUARDIAN_REVIEW",
+            status=pattern_review.status,
+            confidence=pattern_review.confidence,
+            data={
+                "findings": pattern_review.findings,
+                "evidence": pattern_review.evidence,
+                "issues": pattern_review.issues,
+                "critical_objections": (
+                    pattern_review.critical_objections
+                ),
+                "approved_for_next_stage": (
+                    pattern_review.approved_for_next_stage
+                ),
             },
         )
 
         return {
             "analysis": analysis,
             "review": review,
+            "pattern_analysis": pattern_analysis,
+            "pattern_review": pattern_review,
+            "pattern_findings": pattern_findings,
         }
