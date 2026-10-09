@@ -1,0 +1,308 @@
+from app.fraud.evidence_engine import EvidenceEngine
+
+
+def test_no_findings_produce_low_risk():
+
+    engine = EvidenceEngine()
+
+    assessment = engine.assess([])
+
+    assert assessment["risk_score"] == 0
+    assert assessment["risk_level"] == "LOW"
+    assert assessment["patterns"] == []
+    assert assessment["decision"] == "NO_SUSPICIOUS_ACTIVITY"
+
+
+def test_single_pattern_produces_explainable_risk():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 35
+    assert assessment["risk_level"] == "MEDIUM"
+    assert assessment["patterns"] == ["ACCOUNT_TAKEOVER"]
+    assert assessment["evidence_count"] == 1
+    assert (
+        assessment["decision"]
+        == "REQUIRES_FURTHER_INVESTIGATION"
+    )
+
+
+def test_multiple_independent_patterns_increase_risk():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+        },
+        {
+            "pattern": "IMPOSSIBLE_TRAVEL",
+            "account_id": "ACC1000",
+        },
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 65
+    assert assessment["risk_level"] == "HIGH"
+    assert assessment["patterns"] == [
+        "ACCOUNT_TAKEOVER",
+        "IMPOSSIBLE_TRAVEL",
+    ]
+
+
+def test_duplicate_pattern_does_not_inflate_score():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+        },
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+        },
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 35
+    assert assessment["evidence_count"] == 2
+    assert assessment["patterns"] == ["ACCOUNT_TAKEOVER"]
+
+
+def test_risk_score_is_capped_at_100():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {"pattern": "ACCOUNT_TAKEOVER"},
+        {"pattern": "IMPOSSIBLE_TRAVEL"},
+        {"pattern": "VELOCITY_ATTACK"},
+        {"pattern": "NEW_DEVICE_HIGH_VALUE"},
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 100
+    assert assessment["risk_level"] == "CRITICAL"
+
+
+def test_complete_account_takeover_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+            "transaction_id": "TX1000",
+            "device_id": "DEV-NEW",
+            "ip_address": "10.0.0.99",
+            "amount": 85000.0,
+            "signals": {
+                "new_device": True,
+                "new_ip": True,
+                "high_value": True,
+            },
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+    assert (
+        assessment["evidence_summary"]
+        == "All recognized findings contain the required "
+        "supporting evidence."
+    )
+
+
+def test_incomplete_account_takeover_evidence_is_partial():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC1000",
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "PARTIAL"
+    assert (
+        assessment["evidence_summary"]
+        == "Some recognized findings are missing "
+        "expected supporting evidence."
+    )
+
+
+def test_unknown_pattern_is_not_treated_as_evidence():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "UNKNOWN_PATTERN",
+            "account_id": "ACC1000",
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["risk_score"] == 0
+    assert assessment["evidence_quality"] == "NONE"
+    assert assessment["patterns"] == []
+    assert assessment["decision"] == "NO_SUSPICIOUS_ACTIVITY"
+
+
+def test_complete_velocity_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "VELOCITY_ATTACK",
+            "account_id": "ACC2000",
+            "transaction_count": 6,
+            "window_minutes": 10,
+            "transaction_ids": [
+                "TX2001",
+                "TX2002",
+                "TX2003",
+                "TX2004",
+                "TX2005",
+                "TX2006",
+            ],
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_complete_new_device_high_value_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "account_id": "ACC3000",
+            "transaction_id": "TX3000",
+            "device_id": "DEV-NEW-3000",
+            "amount": 75000.0,
+            "threshold": 50000.0,
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_complete_impossible_travel_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "IMPOSSIBLE_TRAVEL",
+            "account_id": "ACC4000",
+            "from_country": "IN",
+            "to_country": "US",
+            "from_transaction_id": "TX4001",
+            "to_transaction_id": "TX4002",
+            "distance_km": 12000.0,
+            "elapsed_hours": 1.0,
+            "required_speed_kmh": 12000.0,
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_complete_velocity_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "VELOCITY_ATTACK",
+            "account_id": "ACC2000",
+            "transaction_count": 6,
+            "window_minutes": 10,
+            "transaction_ids": [
+                "TX2001",
+                "TX2002",
+                "TX2003",
+                "TX2004",
+                "TX2005",
+                "TX2006",
+            ],
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_complete_new_device_high_value_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "account_id": "ACC3000",
+            "transaction_id": "TX3000",
+            "device_id": "DEV-NEW-3000",
+            "amount": 75000.0,
+            "threshold": 50000.0,
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
+
+
+def test_complete_impossible_travel_evidence_is_strong():
+
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "IMPOSSIBLE_TRAVEL",
+            "account_id": "ACC4000",
+            "from_country": "IN",
+            "to_country": "US",
+            "from_transaction_id": "TX4001",
+            "to_transaction_id": "TX4002",
+            "distance_km": 12000.0,
+            "elapsed_hours": 1.0,
+            "required_speed_kmh": 12000.0,
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["evidence_quality"] == "STRONG"
