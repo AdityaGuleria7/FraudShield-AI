@@ -10,6 +10,20 @@ class EvidenceEngine:
         "ACCOUNT_TAKEOVER": 35,
     }
 
+    def __init__(
+        self,
+        ml_strong_threshold: float = 0.80,
+        ml_weak_threshold: float = 0.50,
+    ) -> None:
+        if not 0.0 <= ml_weak_threshold <= ml_strong_threshold <= 1.0:
+            raise ValueError(
+                "ML thresholds must satisfy "
+                "0.0 <= ml_weak_threshold <= ml_strong_threshold <= 1.0"
+            )
+
+        self.ml_strong_threshold = ml_strong_threshold
+        self.ml_weak_threshold = ml_weak_threshold
+
     def assess(
         self,
         findings: list[dict[str, Any]],
@@ -69,11 +83,26 @@ class EvidenceEngine:
             }
         )
 
-        if not corroborating_ml_findings:
+        qualifying_ml_findings = [
+            finding
+            for finding in corroborating_ml_findings
+            if float(finding.get("fraud_probability", 0.0))
+            >= self.ml_weak_threshold
+        ]
+
+        ml_corroboration = sorted(
+            {
+                finding.get("transaction_id")
+                for finding in qualifying_ml_findings
+            }
+        )
+
+        if not qualifying_ml_findings:
             ml_corroboration_quality = "NONE"
         elif any(
-            float(finding.get("fraud_probability", 0.0)) >= 0.80
-            for finding in corroborating_ml_findings
+            float(finding.get("fraud_probability", 0.0))
+            >= self.ml_strong_threshold
+            for finding in qualifying_ml_findings
         ):
             ml_corroboration_quality = "STRONG"
         else:
