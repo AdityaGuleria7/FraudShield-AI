@@ -7,21 +7,42 @@ class MLEvidenceBuilder:
         ml_result: dict[str, Any],
         transaction_id: str,
     ) -> dict[str, Any]:
-        transaction_ids = ml_result.get("transaction_ids", [])
+        validation_provenance = ml_result.get(
+            "validation_prediction_provenance"
+        )
 
-        if transaction_id not in transaction_ids:
-            raise ValueError(f"No ML prediction for transaction {transaction_id}")
+        if validation_provenance != "out_of_sample":
+            raise ValueError(
+                "ML evidence requires out_of_sample prediction provenance"
+            )
 
-        transaction_index = transaction_ids.index(transaction_id)
+        validation_transaction_ids = ml_result.get(
+            "validation_transaction_ids",
+            [],
+        )
 
-        predictions = ml_result.get("predictions", [])
-        probabilities = ml_result.get("probabilities", [])
+        if transaction_id not in validation_transaction_ids:
+            raise ValueError(
+                f"No out_of_sample ML prediction for transaction "
+                f"{transaction_id}"
+            )
+
+        transaction_index = validation_transaction_ids.index(transaction_id)
+
+        predictions = ml_result.get("validation_predictions", [])
+        probabilities = ml_result.get("validation_probabilities", [])
 
         if transaction_index >= len(predictions):
-            raise ValueError(f"No ML prediction for transaction {transaction_id}")
+            raise ValueError(
+                f"No out_of_sample ML prediction for transaction "
+                f"{transaction_id}"
+            )
 
         if transaction_index >= len(probabilities):
-            raise ValueError(f"No ML probability for transaction {transaction_id}")
+            raise ValueError(
+                f"No out_of_sample ML probability for transaction "
+                f"{transaction_id}"
+            )
 
         validation = ml_result.get("validation", {})
 
@@ -31,6 +52,7 @@ class MLEvidenceBuilder:
             "model_type": ml_result["model_type"],
             "predicted_fraud": bool(predictions[transaction_index]),
             "fraud_probability": float(probabilities[transaction_index]),
+            "prediction_provenance": validation_provenance,
             "validation_status": validation.get("status"),
             "model_approved": bool(validation.get("approved", False)),
             "metrics": ml_result.get("metrics", {}),

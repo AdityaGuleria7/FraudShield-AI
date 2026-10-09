@@ -97,3 +97,24 @@ def test_ml_pipeline_reports_prediction_provenance():
 
     assert result["prediction_provenance"] == "in_sample"
     assert result["validation_prediction_provenance"] == "out_of_sample"
+
+
+def test_ml_evidence_builder_rejects_in_sample_prediction_evidence():
+    from app.ml.evidence import MLEvidenceBuilder
+
+    result = MLPipeline().run(
+        make_feature_vectors(),
+        make_transactions(),
+    )
+
+    transaction_id = result["train_transaction_ids"][0]
+
+    try:
+        MLEvidenceBuilder().build(result, transaction_id)
+    except ValueError as exc:
+        assert "out_of_sample" in str(exc).lower()
+        return
+
+    raise AssertionError(
+        "In-sample prediction was incorrectly accepted as ML evidence"
+    )

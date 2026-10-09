@@ -13,6 +13,11 @@ def sample_ml_result():
         "transaction_ids": ["TX001", "TX002"],
         "predictions": [0, 1],
         "probabilities": [0.12, 0.87],
+        "validation_transaction_ids": ["TX001", "TX002"],
+        "validation_predictions": [0, 1],
+        "validation_probabilities": [0.12, 0.87],
+        "prediction_provenance": "in_sample",
+        "validation_prediction_provenance": "out_of_sample",
         "metrics": {
             "precision": 0.80,
             "recall": 0.75,
@@ -44,6 +49,7 @@ def test_ml_evidence_builder_creates_structured_evidence():
     assert evidence["model_type"] == "logistic_regression"
     assert evidence["predicted_fraud"] is True
     assert evidence["fraud_probability"] == 0.87
+    assert evidence["prediction_provenance"] == "out_of_sample"
     assert evidence["validation_status"] == "PASS"
     assert evidence["model_approved"] is True
 
@@ -75,4 +81,4 @@ def test_missing_transaction_prediction_is_rejected():
         )
         assert False, "Expected ValueError"
     except ValueError as exc:
-        assert "No ML prediction" in str(exc)
+        assert "No out_of_sample ML prediction" in str(exc)
