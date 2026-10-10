@@ -45,13 +45,23 @@ class MLEvidenceBuilder:
             )
 
         validation = ml_result.get("validation", {})
+        decision_threshold = ml_result.get("optimized_threshold")
+
+        if decision_threshold is None:
+            raise ValueError(
+                "ML evidence requires an optimized decision threshold"
+            )
+
+        probability = float(probabilities[transaction_index])
+        predicted_fraud = probability >= float(decision_threshold)
 
         return {
             "evidence_type": "ml_model_prediction",
             "transaction_id": transaction_id,
             "model_type": ml_result["model_type"],
-            "predicted_fraud": bool(predictions[transaction_index]),
-            "fraud_probability": float(probabilities[transaction_index]),
+            "predicted_fraud": predicted_fraud,
+            "fraud_probability": probability,
+            "decision_threshold": float(decision_threshold),
             "prediction_provenance": validation_provenance,
             "validation_status": validation.get("status"),
             "model_approved": bool(validation.get("approved", False)),

@@ -18,6 +18,7 @@ def sample_ml_result():
         "validation_probabilities": [0.12, 0.87],
         "prediction_provenance": "in_sample",
         "validation_prediction_provenance": "out_of_sample",
+        "optimized_threshold": 0.50,
         "metrics": {
             "precision": 0.80,
             "recall": 0.75,

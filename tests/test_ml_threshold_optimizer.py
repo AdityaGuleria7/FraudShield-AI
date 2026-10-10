@@ -170,3 +170,30 @@ def test_ml_pipeline_returns_cost_optimized_threshold():
     assert "threshold_optimization" in result
     assert result["threshold_optimization"]["optimization_basis"] == "validation_out_of_sample"
 
+
+
+def test_ml_evidence_uses_optimized_threshold():
+    from app.ml.evidence import MLEvidenceBuilder
+
+    ml_result = {
+        "model_type": "logistic_regression",
+        "validation_prediction_provenance": "out_of_sample",
+        "validation_transaction_ids": ["TX100"],
+        "validation_predictions": [0],
+        "validation_probabilities": [0.70],
+        "optimized_threshold": 0.60,
+        "validation": {
+            "status": "PASS",
+            "approved": True,
+        },
+        "metrics": {},
+    }
+
+    evidence = MLEvidenceBuilder().build(
+        ml_result=ml_result,
+        transaction_id="TX100",
+    )
+
+    assert evidence["fraud_probability"] == 0.70
+    assert evidence["decision_threshold"] == 0.60
+    assert evidence["predicted_fraud"] is True
