@@ -4,6 +4,7 @@ from app.ml.baseline import MLBaselineModel
 from app.ml.dataset import FraudDatasetBuilder
 from app.ml.evaluator import MLEvaluator
 from app.ml.validation import ModelValidationGate
+from app.ml.threshold_optimizer import CostSensitiveThresholdOptimizer
 
 
 class MLPipeline:
@@ -12,6 +13,10 @@ class MLPipeline:
         self.model = MLBaselineModel()
         self.evaluator = MLEvaluator()
         self.validation_gate = ModelValidationGate()
+        self.threshold_optimizer = CostSensitiveThresholdOptimizer(
+            false_positive_cost=1.0,
+            false_negative_cost=5.0,
+        )
 
     def run(
         self,
@@ -100,6 +105,12 @@ class MLPipeline:
 
         validation = self.validation_gate.validate(metrics)
 
+        threshold_optimization = self.threshold_optimizer.optimize(
+            y_true=y_validation,
+            probabilities=validation_probabilities,
+            prediction_provenance="out_of_sample",
+        )
+
         train_transaction_ids = [
             transaction_ids[index]
             for index in train_indices
@@ -123,6 +134,8 @@ class MLPipeline:
             "validation_prediction_provenance": "out_of_sample",
             "metrics": metrics,
             "validation": validation,
+            "optimized_threshold": threshold_optimization["selected_threshold"],
+            "threshold_optimization": threshold_optimization,
             "dataset_size": len(dataset["y"]),
             "train_dataset_size": len(y_train),
             "validation_dataset_size": len(y_validation),
