@@ -19,6 +19,11 @@ class InvestigationCaseBuilder:
         risk_score = evidence_assessment["risk_score"]
         risk_level = evidence_assessment["risk_level"]
 
+        if risk_score > 0 and not evidence_assessment.get("provenance"):
+            raise ValueError(
+                "Investigation case requires provenance for risky evidence"
+            )
+
         if risk_score == 0:
             case_status = "NO_ACTION_REQUIRED"
         else:

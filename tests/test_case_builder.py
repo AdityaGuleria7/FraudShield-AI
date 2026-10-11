@@ -21,6 +21,18 @@ def test_builds_open_investigation_case():
         },
         "evidence_count": 2,
         "evidence_quality": "STRONG",
+        "provenance": [
+            {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+            {
+                "detector": "new_device_high_value",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+        ],
     }
 
     findings = [
@@ -192,4 +204,37 @@ def test_investigation_case_preserves_multiple_detector_provenance_records():
     assert provenance_by_detector["account_takeover"]["version"] == "1"
     assert provenance_by_detector["impossible_travel"]["method"] == "deterministic_rule"
     assert provenance_by_detector["impossible_travel"]["version"] == "1"
+
+def test_investigation_case_rejects_missing_provenance_for_risky_case():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "transaction_id": "TX9000",
+        }
+    ]
+
+    try:
+        builder.build(
+            task_id="CASE-INTEGRITY-001",
+            evidence_assessment=assessment,
+            findings=findings,
+        )
+    except ValueError as exc:
+        assert "provenance" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Risky investigation case must reject missing provenance"
+        )
 
