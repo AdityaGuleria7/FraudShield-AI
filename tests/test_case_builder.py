@@ -238,3 +238,43 @@ def test_investigation_case_rejects_missing_provenance_for_risky_case():
             "Risky investigation case must reject missing provenance"
         )
 
+def test_investigation_case_rejects_evidence_count_mismatch():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "overlapping_transactions": {},
+        "evidence_count": 2,
+        "evidence_quality": "STRONG",
+        "provenance": [
+            {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            }
+        ],
+    }
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "transaction_id": "TX10000",
+        }
+    ]
+
+    try:
+        builder.build(
+            task_id="CASE-INTEGRITY-002",
+            evidence_assessment=assessment,
+            findings=findings,
+        )
+    except ValueError as exc:
+        assert "evidence count" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Investigation case must reject mismatched evidence count"
+        )
+
