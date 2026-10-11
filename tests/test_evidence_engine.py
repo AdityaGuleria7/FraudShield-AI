@@ -377,3 +377,30 @@ def test_overlapping_patterns_do_not_receive_full_combined_weight():
     assessment = engine.assess(findings)
 
     assert assessment["risk_score"] == 47
+
+
+def test_same_transaction_patterns_are_not_counted_as_independent_streams():
+    from app.fraud.evidence_engine import EvidenceEngine
+
+    findings = [
+        {
+            "pattern": "VELOCITY_ATTACK",
+            "transaction_id": "TX100",
+            "account_id": "ACC100",
+            "transaction_count": 5,
+            "window_minutes": 5,
+            "transaction_ids": ["TX096", "TX097", "TX098", "TX099", "TX100"],
+        },
+        {
+            "pattern": "NEW_DEVICE_HIGH_VALUE",
+            "transaction_id": "TX100",
+            "account_id": "ACC100",
+            "device_id": "DEV999",
+            "amount": 95000,
+            "threshold": 50000,
+        },
+    ]
+
+    result = EvidenceEngine().assess(findings)
+
+    assert result["independent_evidence_streams"] == 1

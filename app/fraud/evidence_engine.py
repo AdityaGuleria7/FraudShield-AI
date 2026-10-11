@@ -154,6 +154,24 @@ class EvidenceEngine:
 
         score = min(int(score), 100)
 
+        independent_streams = len(
+            {
+                transaction_id
+                for transaction_id in transaction_pattern_map
+                if transaction_id
+            }
+        )
+
+        findings_without_transaction = sum(
+            1
+            for finding in recognized_findings
+            if not finding.get("transaction_id")
+        )
+
+        independent_evidence_streams = (
+            independent_streams + findings_without_transaction
+        )
+
         if not recognized_findings:
             evidence_quality = "NONE"
             evidence_summary = "No recognized fraud evidence was supplied."
@@ -235,7 +253,7 @@ class EvidenceEngine:
             "risk_score": score,
             "risk_level": risk_level,
             "patterns": unique_patterns,
-            "independent_evidence_streams": len(unique_patterns),
+            "independent_evidence_streams": independent_evidence_streams,
             "evidence_count": len(findings),
             "ml_evidence_count": len(ml_findings),
             "approved_ml_evidence_count": len(approved_ml_findings),
