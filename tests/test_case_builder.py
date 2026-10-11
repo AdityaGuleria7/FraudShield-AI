@@ -99,3 +99,40 @@ def test_builds_no_action_case_when_risk_is_zero():
     assert case["overlapping_patterns"] == []
     assert case["overlapping_transactions"] == {}
     assert case["required_actions"] == []
+
+def test_investigation_case_preserves_detector_provenance():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+        "provenance": [
+            {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            }
+        ],
+    }
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "transaction_id": "TX7000",
+        }
+    ]
+
+    case = builder.build(
+        task_id="CASE-PROV-001",
+        evidence_assessment=assessment,
+        findings=findings,
+    )
+
+    assert case["provenance"][0]["detector"] == "account_takeover"
+    assert case["provenance"][0]["method"] == "deterministic_rule"
+    assert case["provenance"][0]["version"] == "1"

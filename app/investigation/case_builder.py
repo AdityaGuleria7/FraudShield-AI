@@ -53,6 +53,7 @@ class InvestigationCaseBuilder:
             "risk_level": risk_level,
             "decision": evidence_assessment["decision"],
             "patterns": evidence_assessment["patterns"],
+            "provenance": evidence_assessment.get("provenance", []),
             "independent_patterns": independent_patterns,
             "overlapping_patterns": overlapping_patterns,
             "overlapping_transactions": evidence_assessment[
