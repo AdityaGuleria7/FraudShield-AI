@@ -24,6 +24,19 @@ class InvestigationCaseBuilder:
                 "Investigation case evidence count does not match findings"
             )
 
+        finding_patterns = {
+            finding.get("pattern")
+            for finding in findings
+            if finding.get("pattern")
+        }
+
+        declared_patterns = set(evidence_assessment["patterns"])
+
+        if not finding_patterns.issubset(declared_patterns):
+            raise ValueError(
+                "Investigation case contains findings with undeclared patterns"
+            )
+
         if risk_score > 0 and not evidence_assessment.get("provenance"):
             raise ValueError(
                 "Investigation case requires provenance for risky evidence"

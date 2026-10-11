@@ -278,3 +278,43 @@ def test_investigation_case_rejects_evidence_count_mismatch():
             "Investigation case must reject mismatched evidence count"
         )
 
+def test_investigation_case_rejects_pattern_finding_mismatch():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+        "provenance": [
+            {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            }
+        ],
+    }
+
+    findings = [
+        {
+            "pattern": "VELOCITY_ATTACK",
+            "transaction_id": "TX11000",
+        }
+    ]
+
+    try:
+        builder.build(
+            task_id="CASE-INTEGRITY-003",
+            evidence_assessment=assessment,
+            findings=findings,
+        )
+    except ValueError as exc:
+        assert "pattern" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Investigation case must reject pattern/finding mismatch"
+        )
+
