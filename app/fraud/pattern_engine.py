@@ -120,6 +120,11 @@ class FraudPatternEngine:
                         "device_id": device_id,
                         "amount": transaction["amount"],
                         "threshold": high_value_threshold,
+                        "provenance": {
+                            "detector": "new_device_high_value",
+                            "method": "deterministic_rule",
+                            "version": "1",
+                        },
                         "evidence": (
                             f"New device {device_id} used for "
                             f"high-value transaction of "

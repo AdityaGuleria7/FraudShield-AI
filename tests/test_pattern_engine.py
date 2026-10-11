@@ -120,3 +120,40 @@ def test_detect_account_takeover():
     assert len(findings) == 1
     assert findings[0]["pattern"] == "ACCOUNT_TAKEOVER"
     assert findings[0]["account_id"] == "ACC8000"
+
+
+def test_fraud_pattern_findings_include_detector_provenance():
+    from app.fraud.pattern_engine import FraudPatternEngine
+
+    transactions = [
+        {
+            "transaction_id": "TX001",
+            "account_id": "ACC001",
+            "device_id": "DEV001",
+            "ip_address": "192.168.1.10",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 95000,
+            "timestamp": "2026-01-01T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX002",
+            "account_id": "ACC001",
+            "device_id": "DEV002",
+            "ip_address": "192.168.1.11",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 100,
+            "timestamp": "2026-01-01T10:01:00+00:00",
+            "is_fraud": False,
+        },
+    ]
+
+    findings = FraudPatternEngine().detect_new_device_high_value(
+        transactions,
+        high_value_threshold=50000,
+    )
+
+    assert findings
+    assert findings[0]["provenance"]["detector"] == "new_device_high_value"
