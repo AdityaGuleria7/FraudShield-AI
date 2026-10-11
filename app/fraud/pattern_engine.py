@@ -62,6 +62,11 @@ class FraudPatternEngine:
                     findings.append(
                         {
                             "pattern": "VELOCITY_ATTACK",
+                            "provenance": {
+                                "detector": "velocity",
+                                "method": "deterministic_rule",
+                                "version": "1",
+                            },
                             "account_id": account_id,
                             "transaction_count": len(window),
                             "window_minutes": window_minutes,

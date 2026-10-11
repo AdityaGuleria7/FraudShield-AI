@@ -157,3 +157,30 @@ def test_fraud_pattern_findings_include_detector_provenance():
 
     assert findings
     assert findings[0]["provenance"]["detector"] == "new_device_high_value"
+
+def test_velocity_attack_findings_include_detector_provenance():
+    from app.fraud.pattern_engine import FraudPatternEngine
+
+    transactions = [
+        {
+            "transaction_id": f"TX{index:03d}",
+            "account_id": "ACC001",
+            "device_id": f"DEV{index:03d}",
+            "ip_address": f"192.168.1.{index}",
+            "country": "IN",
+            "merchant_category": "ELECTRONICS",
+            "amount": 1000,
+            "timestamp": f"2026-01-01T10:0{index}:00+00:00",
+            "is_fraud": False,
+        }
+        for index in range(1, 6)
+    ]
+
+    findings = FraudPatternEngine().detect_velocity(
+        transactions,
+        minimum_transactions=5,
+        window_minutes=10,
+    )
+
+    assert findings
+    assert findings[0]["provenance"]["detector"] == "velocity"
