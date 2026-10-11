@@ -5,6 +5,7 @@ from app.ml.dataset import FraudDatasetBuilder
 from app.ml.evaluator import MLEvaluator
 from app.ml.validation import ModelValidationGate
 from app.ml.threshold_optimizer import CostSensitiveThresholdOptimizer
+from app.ml.threshold_policy import ThresholdPolicyGate
 
 
 class MLPipeline:
@@ -17,6 +18,7 @@ class MLPipeline:
             false_positive_cost=1.0,
             false_negative_cost=5.0,
         )
+        self.threshold_policy = ThresholdPolicyGate()
 
     def run(
         self,
@@ -91,8 +93,20 @@ class MLPipeline:
 
         training_result = self.model.train(training_dataset)
 
-        validation_predictions = self.model.predict(X_validation)
         validation_probabilities = self.model.predict_proba(X_validation)
+
+        threshold_optimization = self.threshold_optimizer.optimize(
+            y_true=y_validation,
+            probabilities=validation_probabilities,
+            prediction_provenance="out_of_sample",
+        )
+
+        optimized_threshold = threshold_optimization["selected_threshold"]
+
+        validation_predictions = [
+            int(probability >= optimized_threshold)
+            for probability in validation_probabilities
+        ]
 
         metrics = self.evaluator.evaluate(
             y_true=y_validation,
@@ -105,10 +119,12 @@ class MLPipeline:
 
         validation = self.validation_gate.validate(metrics)
 
-        threshold_optimization = self.threshold_optimizer.optimize(
-            y_true=y_validation,
-            probabilities=validation_probabilities,
-            prediction_provenance="out_of_sample",
+        threshold_policy = self.threshold_policy.validate(
+            threshold=threshold_optimization["selected_threshold"],
+            validation=validation,
+            optimization_basis=threshold_optimization["optimization_basis"],
+            false_positive_cost=self.threshold_optimizer.false_positive_cost,
+            false_negative_cost=self.threshold_optimizer.false_negative_cost,
         )
 
         train_transaction_ids = [
@@ -136,6 +152,7 @@ class MLPipeline:
             "validation": validation,
             "optimized_threshold": threshold_optimization["selected_threshold"],
             "threshold_optimization": threshold_optimization,
+            "threshold_policy": threshold_policy,
             "dataset_size": len(dataset["y"]),
             "train_dataset_size": len(y_train),
             "validation_dataset_size": len(y_validation),

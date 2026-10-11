@@ -197,3 +197,54 @@ def test_ml_evidence_uses_optimized_threshold():
     assert evidence["fraud_probability"] == 0.70
     assert evidence["decision_threshold"] == 0.60
     assert evidence["predicted_fraud"] is True
+
+
+def test_ml_pipeline_validation_metrics_use_optimized_threshold():
+    from app.ml.pipeline import MLPipeline
+
+    transactions = [
+        {
+            "transaction_id": f"TX{index + 1}",
+            "timestamp": f"2026-01-{index + 1:02d}T00:00:00+00:00",
+            "is_fraud": index % 2 == 0,
+        }
+        for index in range(10)
+    ]
+
+    feature_vectors = {
+        transaction["transaction_id"]: {
+            "feature_a": float(index),
+        }
+        for index, transaction in enumerate(transactions)
+    }
+
+    result = MLPipeline().run(feature_vectors, transactions)
+
+    assert result["optimized_threshold"] < 0.50
+    assert result["metrics"]["precision"] > 0.0
+    assert result["metrics"]["recall"] > 0.0
+    assert result["metrics"]["f1"] > 0.0
+
+
+def test_threshold_optimizer_includes_probability_at_selected_boundary():
+    from app.ml.threshold_optimizer import CostSensitiveThresholdOptimizer
+
+    optimizer = CostSensitiveThresholdOptimizer(
+        false_positive_cost=1.0,
+        false_negative_cost=5.0,
+    )
+
+    result = optimizer.optimize(
+        y_true=[1, 0],
+        probabilities=[0.3100264421804111, 0.2733332703060586],
+        prediction_provenance="out_of_sample",
+    )
+
+    threshold = result["selected_threshold"]
+
+    predictions = [
+        int(probability >= threshold)
+        for probability in [0.3100264421804111, 0.2733332703060586]
+    ]
+
+    assert predictions == [1, 0]
