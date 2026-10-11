@@ -136,3 +136,60 @@ def test_investigation_case_preserves_detector_provenance():
     assert case["provenance"][0]["detector"] == "account_takeover"
     assert case["provenance"][0]["method"] == "deterministic_rule"
     assert case["provenance"][0]["version"] == "1"
+
+def test_investigation_case_preserves_multiple_detector_provenance_records():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 60,
+        "risk_level": "HIGH",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": [
+            "ACCOUNT_TAKEOVER",
+            "IMPOSSIBLE_TRAVEL",
+        ],
+        "overlapping_transactions": {},
+        "evidence_count": 2,
+        "evidence_quality": "STRONG",
+        "provenance": [
+            {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+            {
+                "detector": "impossible_travel",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+        ],
+    }
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "transaction_id": "TX8000",
+        },
+        {
+            "pattern": "IMPOSSIBLE_TRAVEL",
+            "transaction_id": "TX8001",
+        },
+    ]
+
+    case = builder.build(
+        task_id="CASE-PROV-002",
+        evidence_assessment=assessment,
+        findings=findings,
+    )
+
+    provenance_by_detector = {
+        item["detector"]: item
+        for item in case["provenance"]
+    }
+
+    assert len(case["provenance"]) == 2
+    assert provenance_by_detector["account_takeover"]["method"] == "deterministic_rule"
+    assert provenance_by_detector["account_takeover"]["version"] == "1"
+    assert provenance_by_detector["impossible_travel"]["method"] == "deterministic_rule"
+    assert provenance_by_detector["impossible_travel"]["version"] == "1"
+

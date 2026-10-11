@@ -227,6 +227,7 @@ def test_orchestrator_builds_investigation_case(tmp_path):
     assert provenance_by_detector["account_takeover"]["version"] == "1"
     assert provenance_by_detector["new_device_high_value"]["method"] == "deterministic_rule"
     assert provenance_by_detector["new_device_high_value"]["version"] == "1"
+    assert len(case["provenance"]) == 2
     assert case["required_actions"] == [
         "Investigate supporting evidence."
     ]
