@@ -61,3 +61,26 @@ def test_normal_transaction_is_not_account_takeover():
     findings = detector.detect(transactions)
 
     assert findings == []
+
+def test_account_takeover_findings_include_detector_provenance():
+    transactions = [
+        {
+            "transaction_id": "TX-ATO-PROV-001",
+            "account_id": "ACC5000",
+            "device_id": "DEV-OLD",
+            "ip_address": "10.0.0.1",
+            "amount": 1000.0,
+        },
+        {
+            "transaction_id": "TX-ATO-PROV-002",
+            "account_id": "ACC5000",
+            "device_id": "DEV-NEW",
+            "ip_address": "10.0.0.99",
+            "amount": 95000.0,
+        },
+    ]
+
+    findings = AccountTakeoverDetector().detect(transactions)
+
+    assert findings
+    assert findings[0]["provenance"]["detector"] == "account_takeover"

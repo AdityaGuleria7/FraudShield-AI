@@ -48,6 +48,11 @@ class AccountTakeoverDetector:
                 findings.append(
                     {
                         "pattern": "ACCOUNT_TAKEOVER",
+                        "provenance": {
+                            "detector": "account_takeover",
+                            "method": "deterministic_rule",
+                            "version": "1",
+                        },
                         "account_id": account_id,
                         "transaction_id": transaction[
                             "transaction_id"
