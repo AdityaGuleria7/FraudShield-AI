@@ -186,6 +186,17 @@ def test_ml_evidence_uses_optimized_threshold():
             "status": "PASS",
             "approved": True,
         },
+        "threshold_policy": {
+            "status": "PASS",
+            "approved": True,
+            "issues": [],
+            "threshold": 0.60,
+            "minimum_threshold": 0.30,
+            "maximum_threshold": 0.80,
+            "optimization_basis": "validation_out_of_sample",
+            "false_positive_cost": 1.0,
+            "false_negative_cost": 5.0,
+        },
         "metrics": {},
     }
 

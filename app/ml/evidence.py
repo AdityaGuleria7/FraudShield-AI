@@ -45,6 +45,16 @@ class MLEvidenceBuilder:
             )
 
         validation = ml_result.get("validation", {})
+        threshold_policy = ml_result.get("threshold_policy", {})
+
+        if (
+            threshold_policy.get("status") != "PASS"
+            or threshold_policy.get("approved") is not True
+        ):
+            raise ValueError(
+                "ML evidence blocked because threshold policy is not approved"
+            )
+
         decision_threshold = ml_result.get("optimized_threshold")
 
         if decision_threshold is None:

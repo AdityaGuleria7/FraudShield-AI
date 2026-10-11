@@ -31,6 +31,17 @@ def sample_ml_result():
             "approved": True,
             "issues": [],
         },
+        "threshold_policy": {
+            "status": "PASS",
+            "approved": True,
+            "issues": [],
+            "threshold": 0.50,
+            "minimum_threshold": 0.30,
+            "maximum_threshold": 0.80,
+            "optimization_basis": "validation_out_of_sample",
+            "false_positive_cost": 1.0,
+            "false_negative_cost": 5.0,
+        },
         "dataset_size": 2,
         "fraud_count": 1,
         "non_fraud_count": 1,
@@ -83,3 +94,38 @@ def test_missing_transaction_prediction_is_rejected():
         assert False, "Expected ValueError"
     except ValueError as exc:
         assert "No out_of_sample ML prediction" in str(exc)
+
+
+def test_ml_evidence_rejects_threshold_policy_rejection():
+    from app.ml.evidence import MLEvidenceBuilder
+
+    ml_result = {
+        "model_type": "logistic_regression",
+        "transaction_ids": ["TX1"],
+        "validation_transaction_ids": ["TX1"],
+        "validation_predictions": [1],
+        "validation_probabilities": [0.90],
+        "validation_prediction_provenance": "out_of_sample",
+        "optimized_threshold": 0.50,
+        "validation": {
+            "status": "PASS",
+            "approved": True,
+        },
+        "threshold_policy": {
+            "status": "REJECT",
+            "approved": False,
+            "issues": ["threshold_range"],
+        },
+        "metrics": {},
+    }
+
+    builder = MLEvidenceBuilder()
+
+    try:
+        builder.build(ml_result, "TX1")
+    except ValueError as exc:
+        assert "threshold policy" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "ML evidence must be blocked when threshold policy is rejected"
+        )
