@@ -218,6 +218,15 @@ def test_orchestrator_builds_investigation_case(tmp_path):
         "NEW_DEVICE_HIGH_VALUE",
     ]
     assert case["evidence_quality"] == "STRONG"
+    provenance_by_detector = {
+        item["detector"]: item
+        for item in case["provenance"]
+    }
+
+    assert provenance_by_detector["account_takeover"]["method"] == "deterministic_rule"
+    assert provenance_by_detector["account_takeover"]["version"] == "1"
+    assert provenance_by_detector["new_device_high_value"]["method"] == "deterministic_rule"
+    assert provenance_by_detector["new_device_high_value"]["version"] == "1"
     assert case["required_actions"] == [
         "Investigate supporting evidence."
     ]
