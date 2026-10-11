@@ -61,3 +61,26 @@ def test_normal_travel_is_not_flagged():
     findings = detector.detect(transactions)
 
     assert findings == []
+
+def test_impossible_travel_findings_include_detector_provenance():
+    transactions = [
+        {
+            "transaction_id": "TX-PROV-001",
+            "account_id": "ACC1000",
+            "country": "IN",
+            "timestamp": "2026-01-01T10:00:00+00:00",
+        },
+        {
+            "transaction_id": "TX-PROV-002",
+            "account_id": "ACC1000",
+            "country": "US",
+            "timestamp": "2026-01-01T10:01:00+00:00",
+        },
+    ]
+
+    detector = ImpossibleTravelDetector(max_speed_kmh=900)
+
+    findings = detector.detect(transactions)
+
+    assert findings
+    assert findings[0]["provenance"]["detector"] == "impossible_travel"

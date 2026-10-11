@@ -112,6 +112,11 @@ class ImpossibleTravelDetector:
                     findings.append(
                         {
                             "pattern": "IMPOSSIBLE_TRAVEL",
+                            "provenance": {
+                                "detector": "impossible_travel",
+                                "method": "deterministic_rule",
+                                "version": "1",
+                            },
                             "account_id": account_id,
                             "from_country": first["country"],
                             "to_country": second["country"],
