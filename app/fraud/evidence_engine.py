@@ -63,6 +63,12 @@ class EvidenceEngine:
             if finding.get("pattern") in self.PATTERN_WEIGHTS
         ]
 
+        provenance = [
+            finding["provenance"]
+            for finding in recognized_findings
+            if "provenance" in finding
+        ]
+
         deterministic_transaction_ids = {
             finding.get("transaction_id")
             for finding in recognized_findings
@@ -253,6 +259,7 @@ class EvidenceEngine:
             "risk_score": score,
             "risk_level": risk_level,
             "patterns": unique_patterns,
+            "provenance": provenance,
             "independent_evidence_streams": independent_evidence_streams,
             "evidence_count": len(findings),
             "ml_evidence_count": len(ml_findings),

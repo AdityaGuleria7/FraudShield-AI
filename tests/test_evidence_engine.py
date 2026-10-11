@@ -404,3 +404,25 @@ def test_same_transaction_patterns_are_not_counted_as_independent_streams():
     result = EvidenceEngine().assess(findings)
 
     assert result["independent_evidence_streams"] == 1
+
+def test_evidence_assessment_preserves_detector_provenance():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC5000",
+            "transaction_id": "TX5000",
+            "provenance": {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+        }
+    ]
+
+    assessment = engine.assess(findings)
+
+    assert assessment["provenance"][0]["detector"] == "account_takeover"
+    assert assessment["provenance"][0]["method"] == "deterministic_rule"
+    assert assessment["provenance"][0]["version"] == "1"
