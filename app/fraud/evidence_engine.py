@@ -10,6 +10,13 @@ class EvidenceEngine:
         "ACCOUNT_TAKEOVER": 35,
     }
 
+    DETECTOR_BY_PATTERN = {
+        "VELOCITY_ATTACK": "velocity",
+        "NEW_DEVICE_HIGH_VALUE": "new_device_high_value",
+        "IMPOSSIBLE_TRAVEL": "impossible_travel",
+        "ACCOUNT_TAKEOVER": "account_takeover",
+    }
+
     def __init__(
         self,
         ml_strong_threshold: float = 0.80,
@@ -68,6 +75,21 @@ class EvidenceEngine:
             for finding in recognized_findings
             if "provenance" in finding
         ]
+
+        for finding in recognized_findings:
+            finding_provenance = finding.get("provenance")
+            if not finding_provenance:
+                continue
+
+            expected_detector = self.DETECTOR_BY_PATTERN.get(
+                finding["pattern"]
+            )
+            actual_detector = finding_provenance.get("detector")
+
+            if actual_detector != expected_detector:
+                raise ValueError(
+                    "Detector provenance does not match finding pattern"
+                )
 
         deterministic_transaction_ids = {
             finding.get("transaction_id")

@@ -426,3 +426,28 @@ def test_evidence_assessment_preserves_detector_provenance():
     assert assessment["provenance"][0]["detector"] == "account_takeover"
     assert assessment["provenance"][0]["method"] == "deterministic_rule"
     assert assessment["provenance"][0]["version"] == "1"
+
+def test_evidence_assessment_rejects_mismatched_detector_provenance():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC7001",
+            "transaction_id": "TX7001",
+            "provenance": {
+                "detector": "velocity",
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+        }
+    ]
+
+    try:
+        engine.assess(findings)
+    except ValueError as exc:
+        assert "provenance" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Mismatched detector provenance must be rejected"
+        )
