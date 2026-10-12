@@ -451,3 +451,27 @@ def test_evidence_assessment_rejects_mismatched_detector_provenance():
         raise AssertionError(
             "Mismatched detector provenance must be rejected"
         )
+
+def test_evidence_assessment_rejects_provenance_without_detector():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC7002",
+            "transaction_id": "TX7002",
+            "provenance": {
+                "method": "deterministic_rule",
+                "version": "1",
+            },
+        }
+    ]
+
+    try:
+        engine.assess(findings)
+    except ValueError as exc:
+        assert "detector provenance does not match" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Provenance without a detector must be rejected"
+        )
