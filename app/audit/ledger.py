@@ -20,6 +20,21 @@ class AuditLedger:
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
 
+        if not agent_id or not agent_id.strip():
+            raise ValueError("agent_id cannot be blank")
+
+        if not agent_role or not agent_role.strip():
+            raise ValueError("agent_role cannot be blank")
+
+        if not task_id or not task_id.strip():
+            raise ValueError("task_id cannot be blank")
+
+        if not action or not action.strip():
+            raise ValueError("action cannot be blank")
+
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0")
+
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "agent_id": agent_id,
