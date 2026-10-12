@@ -549,3 +549,27 @@ def test_evidence_assessment_rejects_provenance_without_method():
         raise AssertionError(
             "Provenance without a method must be rejected"
         )
+
+def test_evidence_assessment_rejects_provenance_without_version():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC7006",
+            "transaction_id": "TX7006",
+            "provenance": {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+            },
+        }
+    ]
+
+    try:
+        engine.assess(findings)
+    except ValueError as exc:
+        assert "version" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Provenance without a version must be rejected"
+        )
