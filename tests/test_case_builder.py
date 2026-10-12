@@ -1,3 +1,4 @@
+import pytest
 from app.investigation.case_builder import InvestigationCaseBuilder
 
 
@@ -318,3 +319,195 @@ def test_investigation_case_rejects_pattern_finding_mismatch():
             "Investigation case must reject pattern/finding mismatch"
         )
 
+
+
+def test_case_rejects_inconsistent_risk_level():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 80,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="risk level"):
+        builder.build("TASK-001", assessment, findings)
+
+
+def test_case_rejects_inconsistent_decision():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "NO_SUSPICIOUS_ACTIVITY",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="decision"):
+        builder.build("TASK-002", assessment, findings)
+
+
+def test_case_rejects_declared_pattern_without_corresponding_finding():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER", "VELOCITY_ATTACK"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="patterns"):
+        builder.build("TASK-003", assessment, findings)
+
+
+def test_case_rejects_inconsistent_evidence_count():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 2,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="evidence count"):
+        builder.build("TASK-004", assessment, findings)
+
+
+def test_case_rejects_inconsistent_risk_level():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 80,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="risk level"):
+        builder.build("TASK-001", assessment, findings)
+
+
+def test_case_rejects_inconsistent_decision():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "NO_SUSPICIOUS_ACTIVITY",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="decision"):
+        builder.build("TASK-002", assessment, findings)
+
+
+def test_case_rejects_declared_pattern_without_corresponding_finding():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER", "VELOCITY_ATTACK"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 1,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="patterns"):
+        builder.build("TASK-003", assessment, findings)
+
+
+def test_case_rejects_inconsistent_evidence_count():
+    builder = InvestigationCaseBuilder()
+
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        "patterns": ["ACCOUNT_TAKEOVER"],
+        "provenance": [{
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        }],
+        "overlapping_transactions": {},
+        "evidence_count": 2,
+        "evidence_quality": "STRONG",
+    }
+
+    findings = [{"pattern": "ACCOUNT_TAKEOVER"}]
+
+    with pytest.raises(ValueError, match="evidence count"):
+        builder.build("TASK-004", assessment, findings)

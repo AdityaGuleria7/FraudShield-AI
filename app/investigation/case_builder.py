@@ -19,6 +19,31 @@ class InvestigationCaseBuilder:
         risk_score = evidence_assessment["risk_score"]
         risk_level = evidence_assessment["risk_level"]
 
+        if risk_score == 0:
+            expected_risk_level = "LOW"
+        elif risk_score < 50:
+            expected_risk_level = "MEDIUM"
+        elif risk_score < 75:
+            expected_risk_level = "HIGH"
+        else:
+            expected_risk_level = "CRITICAL"
+
+        if risk_level != expected_risk_level:
+            raise ValueError(
+                "Investigation case risk level does not match risk score"
+            )
+
+        expected_decision = (
+            "NO_SUSPICIOUS_ACTIVITY"
+            if risk_score == 0
+            else "REQUIRES_FURTHER_INVESTIGATION"
+        )
+
+        if evidence_assessment["decision"] != expected_decision:
+            raise ValueError(
+                "Investigation case decision does not match risk score"
+            )
+
         if evidence_assessment["evidence_count"] != len(findings):
             raise ValueError(
                 "Investigation case evidence count does not match findings"
@@ -32,9 +57,9 @@ class InvestigationCaseBuilder:
 
         declared_patterns = set(evidence_assessment["patterns"])
 
-        if not finding_patterns.issubset(declared_patterns):
+        if finding_patterns != declared_patterns:
             raise ValueError(
-                "Investigation case contains findings with undeclared patterns"
+                "Investigation case patterns do not match findings"
             )
 
         if risk_score > 0 and not evidence_assessment.get("provenance"):
