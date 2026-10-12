@@ -76,3 +76,40 @@ def test_blank_resource_cannot_be_registered():
             resource="",
             operation=lambda: None,
         )
+
+
+def test_registered_operation_cannot_be_replaced():
+    registry = OperationRegistry()
+
+    def original_operation():
+        return "ORIGINAL"
+
+    def replacement_operation():
+        return "REPLACEMENT"
+
+    registry.register(
+        action="READ",
+        resource="TRANSACTION_DATA",
+        operation=original_operation,
+    )
+
+    try:
+        registry.register(
+            action="READ",
+            resource="TRANSACTION_DATA",
+            operation=replacement_operation,
+        )
+    except ValueError as exc:
+        assert "already registered" in str(exc)
+    else:
+        raise AssertionError(
+            "Expected duplicate operation registration to be blocked"
+        )
+
+    assert (
+        registry.resolve(
+            "READ",
+            "TRANSACTION_DATA",
+        )
+        is original_operation
+    )
