@@ -124,6 +124,16 @@ class SignedCheckpointStore:
             if sequence < old_sequence:
                 raise ValueError("Refusing checkpoint rollback to an older ledger")
 
+            # Preserve the previously trusted history before advancing the anchor.
+            anchored_old_hash = events[old_sequence - 1].get("event_hash")
+            if (
+                not isinstance(anchored_old_hash, str)
+                or not hmac.compare_digest(anchored_old_hash, old_hash)
+            ):
+                raise ValueError(
+                    "Existing checkpoint anchor does not match ledger history"
+                )
+
             if sequence == old_sequence and event_hash != old_hash:
                 raise ValueError("Refusing checkpoint replacement with a different chain")
 
