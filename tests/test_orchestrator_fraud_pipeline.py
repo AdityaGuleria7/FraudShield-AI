@@ -416,3 +416,38 @@ def test_orchestrator_stops_when_data_guardian_rejects(
     assert result["pattern_findings"] == []
     assert result["evidence_assessment"] is None
     assert result["investigation_case"] is None
+
+
+def test_orchestrator_stops_when_fraud_pattern_guardian_rejects(
+    tmp_path,
+    monkeypatch,
+):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_review = orchestrator.fraud_pattern_reviewer.review
+
+    def rejected_review(analysis):
+        review = original_review(analysis)
+        review.status = "REJECT"
+        review.approved_for_next_stage = False
+        review.critical_objections = [
+            "Fraud pattern guardian rejected the analysis."
+        ]
+        return review
+
+    monkeypatch.setattr(
+        orchestrator.fraud_pattern_reviewer,
+        "review",
+        rejected_review,
+    )
+
+    result = orchestrator.run(
+        task_id="ORCH-PATTERN-GUARDIAN-001",
+        data={"transactions": []},
+    )
+
+    assert result["pattern_review"].status == "REJECT"
+    assert result["pattern_review"].approved_for_next_stage is False
+    assert result["investigation_case"] is None

@@ -240,6 +240,20 @@ class FraudShieldOrchestrator:
             },
         )
 
+        if (
+            pattern_review.status != "PASS"
+            or not pattern_review.approved_for_next_stage
+        ):
+            return {
+                "analysis": analysis,
+                "review": review,
+                "pattern_analysis": pattern_analysis,
+                "pattern_review": pattern_review,
+                "pattern_findings": pattern_findings,
+                "evidence_assessment": evidence_assessment,
+                "investigation_case": None,
+            }
+
         return {
             "analysis": analysis,
             "review": review,
