@@ -8,6 +8,29 @@ class DataReviewerAgent:
 
     def review(self, result: AgentMessage) -> AgentMessage:
 
+        if (
+            result.agent_id != "DATA_ANALYST_001"
+            or result.agent_role != "Data Analyst"
+        ):
+            return AgentMessage(
+                agent_id=self.agent_id,
+                agent_role=self.agent_role,
+                task_id=result.task_id,
+                status="REJECT",
+                confidence=1.0,
+                issues=[
+                    "Unexpected upstream agent identity or role."
+                ],
+                critical_objections=[
+                    "Guardian cannot validate output from an "
+                    "unrecognized upstream agent."
+                ],
+                approved_for_next_stage=False,
+                required_actions=[
+                    "Provide output from the authorized Data Analyst."
+                ],
+            )
+
         issues = []
 
         if result.confidence < 0.70:
