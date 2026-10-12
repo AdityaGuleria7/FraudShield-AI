@@ -1,3 +1,4 @@
+import pytest
 from app.fraud.evidence_engine import EvidenceEngine
 
 
@@ -609,3 +610,50 @@ def test_provenance_isolation_from_assessment_mutation():
     assessment["provenance"][0]["detector"] = "tampered"
 
     assert findings[0]["provenance"]["detector"] == "account_takeover"
+
+
+def test_unknown_pattern_with_provenance_is_not_silently_counted():
+    findings = [{
+        "pattern": "UNKNOWN_TAMPERED_PATTERN",
+        "transaction_id": "TX999",
+        "provenance": {
+            "detector": "unknown_detector",
+            "method": "deterministic_rule",
+            "version": "1",
+        },
+    }]
+
+    assessment = EvidenceEngine().assess(findings)
+
+    assert assessment["risk_score"] == 0
+    assert assessment["patterns"] == []
+    assert assessment["evidence_count"] == 0
+
+
+def test_malformed_recognized_finding_does_not_bypass_provenance_validation():
+    findings = [{
+        "pattern": "ACCOUNT_TAKEOVER",
+        "transaction_id": "TX001",
+        "provenance": {
+            "method": "deterministic_rule",
+            "version": "1",
+        },
+    }]
+
+    with pytest.raises(ValueError, match="Detector provenance"):
+        EvidenceEngine().assess(findings)
+
+
+def test_recognized_finding_with_unknown_provenance_detector_is_rejected():
+    findings = [{
+        "pattern": "ACCOUNT_TAKEOVER",
+        "transaction_id": "TX001",
+        "provenance": {
+            "detector": "fake_detector",
+            "method": "deterministic_rule",
+            "version": "1",
+        },
+    }]
+
+    with pytest.raises(ValueError, match="Detector provenance"):
+        EvidenceEngine().assess(findings)

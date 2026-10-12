@@ -299,7 +299,7 @@ class EvidenceEngine:
             "patterns": unique_patterns,
             "provenance": provenance,
             "independent_evidence_streams": independent_evidence_streams,
-            "evidence_count": len(findings),
+            "evidence_count": len(recognized_findings),
             "ml_evidence_count": len(ml_findings),
             "approved_ml_evidence_count": len(approved_ml_findings),
             "ml_corroboration": ml_corroboration,
