@@ -343,3 +343,132 @@ def test_audit_ledger_rejects_non_standard_json_numbers(tmp_path):
             raise AssertionError(
                 f"Expected non-standard JSON number to be rejected: {invalid_value}"
             )
+
+
+def test_audit_ledger_links_events_with_hashes(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    first = ledger.record(
+        agent_id="AGENT-001",
+        agent_role="SECURITY_EXECUTOR",
+        task_id="TASK-001",
+        action="FIRST_ACTION",
+        status="PASS",
+        confidence=1.0,
+        data={"step": 1},
+    )
+
+    second = ledger.record(
+        agent_id="AGENT-001",
+        agent_role="SECURITY_EXECUTOR",
+        task_id="TASK-001",
+        action="SECOND_ACTION",
+        status="PASS",
+        confidence=1.0,
+        data={"step": 2},
+    )
+
+    assert len(first["event_hash"]) == 64
+    assert first["previous_hash"] == "0" * 64
+    assert len(second["event_hash"]) == 64
+    assert second["previous_hash"] == first["event_hash"]
+
+
+def test_audit_ledger_verifies_valid_chain(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    for index in range(3):
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-CHAIN",
+            action=f"ACTION_{index}",
+            status="PASS",
+            confidence=1.0,
+            data={"step": index},
+        )
+
+    assert ledger.verify_chain() is True
+
+
+def test_audit_ledger_detects_modified_event(tmp_path):
+    import json
+    from app.audit.ledger import AuditLedger
+
+    audit_file = tmp_path / "audit.jsonl"
+    ledger = AuditLedger(str(audit_file))
+
+    ledger.record(
+        agent_id="AGENT-001",
+        agent_role="SECURITY_EXECUTOR",
+        task_id="TASK-TAMPER",
+        action="ORIGINAL_ACTION",
+        status="PASS",
+        confidence=1.0,
+        data={"amount": 100},
+    )
+
+    event = json.loads(audit_file.read_text().splitlines()[0])
+    event["data"]["amount"] = 999
+
+    audit_file.write_text(json.dumps(event) + "\\n", encoding="utf-8")
+
+    assert ledger.verify_chain() is False
+
+
+def test_audit_ledger_detects_deleted_event(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    audit_file = tmp_path / "audit.jsonl"
+    ledger = AuditLedger(str(audit_file))
+
+    for index in range(3):
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-DELETE",
+            action=f"ACTION_{index}",
+            status="PASS",
+            confidence=1.0,
+            data={"step": index},
+        )
+
+    lines = audit_file.read_text(encoding="utf-8").splitlines()
+    audit_file.write_text(
+        lines[0] + "\n" + lines[2] + "\n",
+        encoding="utf-8",
+    )
+
+    assert ledger.verify_chain() is False
+
+
+def test_audit_ledger_rejects_append_to_legacy_chain(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    audit_file = tmp_path / "audit.jsonl"
+    audit_file.write_text(
+        '{"action":"LEGACY_EVENT","status":"PASS"}\n',
+        encoding="utf-8",
+    )
+    ledger = AuditLedger(str(audit_file))
+
+    try:
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-LEGACY",
+            action="NEW_EVENT",
+            status="PASS",
+            confidence=1.0,
+            data={},
+        )
+    except ValueError as exc:
+        assert "chain" in str(exc).lower()
+    else:
+        raise AssertionError("Expected legacy chain append to be rejected")
+
+    assert len(audit_file.read_text(encoding="utf-8").splitlines()) == 1
