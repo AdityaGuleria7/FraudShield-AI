@@ -74,7 +74,7 @@ class EvidenceEngine:
         ]
 
         provenance = [
-            finding["provenance"]
+            dict(finding["provenance"])
             for finding in recognized_findings
             if "provenance" in finding
         ]

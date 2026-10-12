@@ -573,3 +573,39 @@ def test_evidence_assessment_rejects_provenance_without_version():
         raise AssertionError(
             "Provenance without a version must be rejected"
         )
+
+
+def test_provenance_isolation_from_input_mutation():
+    findings = [{
+        "pattern": "ACCOUNT_TAKEOVER",
+        "transaction_id": "TX001",
+        "provenance": {
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        },
+    }]
+
+    assessment = EvidenceEngine().assess(findings)
+
+    findings[0]["provenance"]["detector"] = "tampered"
+
+    assert assessment["provenance"][0]["detector"] == "account_takeover"
+
+
+def test_provenance_isolation_from_assessment_mutation():
+    findings = [{
+        "pattern": "ACCOUNT_TAKEOVER",
+        "transaction_id": "TX001",
+        "provenance": {
+            "detector": "account_takeover",
+            "method": "deterministic_rule",
+            "version": "1",
+        },
+    }]
+
+    assessment = EvidenceEngine().assess(findings)
+
+    assessment["provenance"][0]["detector"] = "tampered"
+
+    assert findings[0]["provenance"]["detector"] == "account_takeover"
