@@ -17,6 +17,8 @@ class EvidenceEngine:
         "ACCOUNT_TAKEOVER": "account_takeover",
     }
 
+    ALLOWED_PROVENANCE_METHODS = {"deterministic_rule"}
+
     def __init__(
         self,
         ml_strong_threshold: float = 0.80,
@@ -85,10 +87,16 @@ class EvidenceEngine:
                 finding["pattern"]
             )
             actual_detector = finding_provenance.get("detector")
+            method = finding_provenance.get("method")
 
             if actual_detector != expected_detector:
                 raise ValueError(
                     "Detector provenance does not match finding pattern"
+                )
+
+            if method not in self.ALLOWED_PROVENANCE_METHODS:
+                raise ValueError(
+                    "Unsupported provenance method"
                 )
 
         deterministic_transaction_ids = {

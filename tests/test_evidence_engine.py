@@ -475,3 +475,28 @@ def test_evidence_assessment_rejects_provenance_without_detector():
         raise AssertionError(
             "Provenance without a detector must be rejected"
         )
+
+def test_evidence_assessment_rejects_unsupported_provenance_method():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC7003",
+            "transaction_id": "TX7003",
+            "provenance": {
+                "detector": "account_takeover",
+                "method": "llm_generated",
+                "version": "1",
+            },
+        }
+    ]
+
+    try:
+        engine.assess(findings)
+    except ValueError as exc:
+        assert "method" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Unsupported provenance method must be rejected"
+        )
