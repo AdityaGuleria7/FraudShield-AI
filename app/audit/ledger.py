@@ -165,3 +165,26 @@ class AuditLedger:
             file.write(serialized_entry + "\n")
 
         return entry
+
+
+    def create_signed_checkpoint(
+        self,
+        checkpoint_path: str | Path,
+        secret_key: bytes | str,
+    ) -> dict[str, Any]:
+        from app.audit.checkpoints import SignedCheckpointStore
+
+        return SignedCheckpointStore(
+            checkpoint_path, secret_key
+        ).create(self.path)
+
+    def verify_signed_checkpoint(
+        self,
+        checkpoint_path: str | Path,
+        secret_key: bytes | str,
+    ) -> bool:
+        from app.audit.checkpoints import SignedCheckpointStore
+
+        return SignedCheckpointStore(
+            checkpoint_path, secret_key
+        ).verify(self.path)
