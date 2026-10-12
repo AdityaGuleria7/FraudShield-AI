@@ -73,3 +73,49 @@ def test_allowed_but_unregistered_operation_is_not_executed(tmp_path):
         )
 
     assert executed is False
+
+
+def test_authorized_operation_identity_mismatch_is_blocked(tmp_path):
+    from app.security.operation_registry import OperationRegistry
+    from app.security.secure_executor import SecureExecutor
+
+    registry = OperationRegistry()
+    executed = False
+
+    def registered_operation():
+        nonlocal executed
+        executed = True
+        return "REGISTERED"
+
+    def substituted_operation():
+        nonlocal executed
+        executed = True
+        return "SUBSTITUTED"
+
+    registry.register(
+        action="READ",
+        resource="TRANSACTION_DATA",
+        operation=registered_operation,
+    )
+
+    executor = SecureExecutor(
+        operation_registry=registry,
+        audit_path=str(tmp_path / "audit.jsonl"),
+    )
+
+    try:
+        executor.execute(
+            agent_id="DATA_ANALYST_001",
+            action="READ",
+            resource="TRANSACTION_DATA",
+            operation=substituted_operation,
+            task_id="TASK-IDENTITY-MISMATCH",
+        )
+    except ValueError as exc:
+        assert "registered operation" in str(exc)
+    else:
+        raise AssertionError(
+            "Expected operation identity mismatch to be blocked"
+        )
+
+    assert executed is False
