@@ -1,6 +1,7 @@
 import json
 
 from app.security.secure_executor import SecureExecutor
+from app.security.operation_registry import OperationRegistry
 
 
 def test_denied_action_is_not_executed(tmp_path):
@@ -44,9 +45,7 @@ def test_allowed_action_is_executed_and_audited(tmp_path):
 
     audit_file = tmp_path / "audit_ledger.jsonl"
 
-    executor = SecureExecutor(
-        audit_path=str(audit_file)
-    )
+    registry = OperationRegistry()
 
     executed = False
 
@@ -54,6 +53,17 @@ def test_allowed_action_is_executed_and_audited(tmp_path):
         nonlocal executed
         executed = True
         return "SAFE ACTION EXECUTED"
+
+    registry.register(
+        action="READ",
+        resource="TRANSACTION_DATA",
+        operation=safe_operation,
+    )
+
+    executor = SecureExecutor(
+        operation_registry=registry,
+        audit_path=str(audit_file),
+    )
 
     decision, result = executor.execute(
         agent_id="DATA_ANALYST_001",

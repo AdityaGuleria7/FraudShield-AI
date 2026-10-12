@@ -2,6 +2,7 @@ from typing import Callable, Any
 
 from app.audit.ledger import AuditLedger
 from app.security.policy_engine import PolicyEngine, PolicyDecision
+from app.security.operation_registry import OperationRegistry
 
 
 class SecureExecutor:
@@ -9,9 +10,11 @@ class SecureExecutor:
     def __init__(
         self,
         policy_engine: PolicyEngine | None = None,
+        operation_registry: OperationRegistry | None = None,
         audit_path: str = "audit_ledger.jsonl",
     ):
         self.policy_engine = policy_engine or PolicyEngine()
+        self.operation_registry = operation_registry or OperationRegistry()
         self.audit_ledger = AuditLedger(audit_path)
 
     def execute(
@@ -48,6 +51,17 @@ class SecureExecutor:
 
         if not decision.allowed:
             return decision, None
+
+        registered_operation = self.operation_registry.resolve(
+            action=action,
+            resource=resource,
+        )
+
+        if registered_operation is not operation:
+            raise ValueError(
+                "Provided operation does not match the "
+                "registered operation for this action and resource."
+            )
 
         try:
             result = operation(*args, **kwargs)
