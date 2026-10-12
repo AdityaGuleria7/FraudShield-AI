@@ -49,7 +49,23 @@ class SecureExecutor:
         if not decision.allowed:
             return decision, None
 
-        result = operation(*args, **kwargs)
+        try:
+            result = operation(*args, **kwargs)
+        except Exception as exc:
+            self.audit_ledger.record(
+                agent_id=agent_id,
+                agent_role="SECURITY_EXECUTOR",
+                task_id=task_id,
+                action=f"ACTION_EXECUTED:{action}",
+                status="ERROR",
+                confidence=1.0,
+                data={
+                    "resource": resource,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                },
+            )
+            raise
 
         self.audit_ledger.record(
             agent_id=agent_id,
