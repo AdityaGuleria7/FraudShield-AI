@@ -184,3 +184,162 @@ def test_audit_ledger_rejects_non_finite_confidence(tmp_path):
             raise AssertionError(
                 f"Expected non-finite confidence {invalid_confidence} to be rejected"
             )
+
+
+def test_audit_ledger_rejects_unknown_status(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    try:
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-001",
+            action="TEST",
+            status="SUCCESS_WHATEVER",
+            confidence=1.0,
+            data={},
+        )
+    except ValueError as exc:
+        assert "status" in str(exc).lower()
+    else:
+        raise AssertionError("Expected unsupported status to be rejected")
+
+
+def test_audit_ledger_accepts_all_allowed_statuses(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    for status in sorted(ledger.ALLOWED_STATUSES):
+        entry = ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id=f"TASK-{status}",
+            action="TEST",
+            status=status,
+            confidence=1.0,
+            data={},
+        )
+        assert entry["status"] == status
+
+
+def test_invalid_status_does_not_write_audit_event(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    audit_file = tmp_path / "audit.jsonl"
+    ledger = AuditLedger(str(audit_file))
+
+    try:
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-INVALID",
+            action="TEST",
+            status="INVALID",
+            confidence=1.0,
+            data={},
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected invalid status to be rejected")
+
+    assert not audit_file.exists() or audit_file.read_text() == ""
+
+
+def test_audit_ledger_rejects_non_dict_data(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    for invalid_data in ("not-a-dict", ["item"], 123):
+        try:
+            ledger.record(
+                agent_id="AGENT-001",
+                agent_role="SECURITY_EXECUTOR",
+                task_id="TASK-001",
+                action="TEST",
+                status="PASS",
+                confidence=1.0,
+                data=invalid_data,
+            )
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(
+                f"Expected invalid data type to be rejected: {type(invalid_data).__name__}"
+            )
+
+
+def test_audit_ledger_rejects_invalid_confidence_types(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    for invalid_confidence in (True, False, "0.9", None):
+        try:
+            ledger.record(
+                agent_id="AGENT-001",
+                agent_role="SECURITY_EXECUTOR",
+                task_id="TASK-001",
+                action="TEST",
+                status="PASS",
+                confidence=invalid_confidence,
+                data={},
+            )
+        except (TypeError, ValueError):
+            pass
+        else:
+            raise AssertionError(
+                f"Expected invalid confidence to be rejected: {invalid_confidence!r}"
+            )
+
+
+def test_audit_ledger_rejects_non_json_data_without_writing(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    audit_file = tmp_path / "audit.jsonl"
+    ledger = AuditLedger(str(audit_file))
+
+    try:
+        ledger.record(
+            agent_id="AGENT-001",
+            agent_role="SECURITY_EXECUTOR",
+            task_id="TASK-JSON",
+            action="TEST",
+            status="PASS",
+            confidence=1.0,
+            data={"unsupported": object()},
+        )
+    except (TypeError, ValueError):
+        pass
+    else:
+        raise AssertionError("Expected non-JSON data to be rejected")
+
+    assert not audit_file.exists() or audit_file.read_text() == ""
+
+
+def test_audit_ledger_rejects_non_standard_json_numbers(tmp_path):
+    from app.audit.ledger import AuditLedger
+
+    ledger = AuditLedger(str(tmp_path / "audit.jsonl"))
+
+    for invalid_value in (float("nan"), float("inf"), float("-inf")):
+        try:
+            ledger.record(
+                agent_id="AGENT-001",
+                agent_role="SECURITY_EXECUTOR",
+                task_id="TASK-JSON",
+                action="TEST",
+                status="PASS",
+                confidence=1.0,
+                data={"value": invalid_value},
+            )
+        except ValueError as exc:
+            assert "JSON" in str(exc)
+        else:
+            raise AssertionError(
+                f"Expected non-standard JSON number to be rejected: {invalid_value}"
+            )
