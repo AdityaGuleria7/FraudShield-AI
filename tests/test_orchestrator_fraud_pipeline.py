@@ -1,3 +1,4 @@
+import pytest
 import json
 from app.core.orchestrator import FraudShieldOrchestrator
 from app.data.transaction_generator import TransactionGenerator
@@ -276,3 +277,142 @@ def test_data_quality_rejection_stops_fraud_pipeline(tmp_path):
     assert "DATA_QUALITY_VALIDATION" in actions
     assert "EVIDENCE_CORRELATION" not in actions
     assert "INVESTIGATION_CASE_BUILT" not in actions
+
+
+def test_orchestrator_rejects_tampered_evidence_count(tmp_path, monkeypatch):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_assess = orchestrator.evidence_engine.assess
+
+    def tampered_assess(findings):
+        assessment = original_assess(findings)
+        assessment["evidence_count"] += 1
+        return assessment
+
+    monkeypatch.setattr(
+        orchestrator.evidence_engine,
+        "assess",
+        tampered_assess,
+    )
+
+    with pytest.raises(ValueError, match="evidence count"):
+        orchestrator.run(
+            task_id="ORCH-INTEGRITY-001",
+            data={"transactions": []},
+        )
+
+
+def test_orchestrator_rejects_tampered_patterns(tmp_path, monkeypatch):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_assess = orchestrator.evidence_engine.assess
+
+    def tampered_assess(findings):
+        assessment = original_assess(findings)
+        assessment["patterns"] = ["ACCOUNT_TAKEOVER"]
+        return assessment
+
+    monkeypatch.setattr(
+        orchestrator.evidence_engine,
+        "assess",
+        tampered_assess,
+    )
+
+    with pytest.raises(ValueError, match="patterns"):
+        orchestrator.run(
+            task_id="ORCH-INTEGRITY-002",
+            data={"transactions": []},
+        )
+
+
+def test_orchestrator_rejects_tampered_risk_score(tmp_path, monkeypatch):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_assess = orchestrator.evidence_engine.assess
+
+    def tampered_assess(findings):
+        assessment = original_assess(findings)
+        assessment["risk_score"] = 99
+        return assessment
+
+    monkeypatch.setattr(
+        orchestrator.evidence_engine,
+        "assess",
+        tampered_assess,
+    )
+
+    with pytest.raises(ValueError, match="risk"):
+        orchestrator.run(
+            task_id="ORCH-INTEGRITY-003",
+            data={"transactions": []},
+        )
+
+
+def test_orchestrator_rejects_tampered_decision(tmp_path, monkeypatch):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_assess = orchestrator.evidence_engine.assess
+
+    def tampered_assess(findings):
+        assessment = original_assess(findings)
+        assessment["decision"] = "REQUIRES_FURTHER_INVESTIGATION"
+        return assessment
+
+    monkeypatch.setattr(
+        orchestrator.evidence_engine,
+        "assess",
+        tampered_assess,
+    )
+
+    with pytest.raises(ValueError, match="decision"):
+        orchestrator.run(
+            task_id="ORCH-INTEGRITY-004",
+            data={"transactions": []},
+        )
+
+
+def test_orchestrator_stops_when_data_guardian_rejects(
+    tmp_path,
+    monkeypatch,
+):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit.jsonl")
+    )
+
+    original_review = orchestrator.data_reviewer.review
+
+    def rejected_review(analysis):
+        review = original_review(analysis)
+        review.status = "REJECT"
+        review.approved_for_next_stage = False
+        review.critical_objections = ["Guardian rejected the analysis."]
+        return review
+
+    monkeypatch.setattr(
+        orchestrator.data_reviewer,
+        "review",
+        rejected_review,
+    )
+
+    result = orchestrator.run(
+        task_id="ORCH-GUARDIAN-001",
+        data={"transactions": []},
+    )
+
+    assert result["review"].status == "REJECT"
+    assert result["review"].approved_for_next_stage is False
+
+    assert result["data_quality"] is None
+    assert result["pattern_analysis"] is None
+    assert result["pattern_review"] is None
+    assert result["pattern_findings"] == []
+    assert result["evidence_assessment"] is None
+    assert result["investigation_case"] is None

@@ -71,6 +71,21 @@ class FraudShieldOrchestrator:
             },
         )
 
+        if (
+            review.status != "PASS"
+            or not review.approved_for_next_stage
+        ):
+            return {
+                "analysis": analysis,
+                "review": review,
+                "data_quality": None,
+                "pattern_analysis": None,
+                "pattern_review": None,
+                "pattern_findings": [],
+                "evidence_assessment": None,
+                "investigation_case": None,
+            }
+
         # STAGE 3 — DATA QUALITY GATE
 
         transactions = data.get("transactions", [])
