@@ -500,3 +500,28 @@ def test_evidence_assessment_rejects_unsupported_provenance_method():
         raise AssertionError(
             "Unsupported provenance method must be rejected"
         )
+
+def test_evidence_assessment_rejects_unsupported_provenance_version():
+    engine = EvidenceEngine()
+
+    findings = [
+        {
+            "pattern": "ACCOUNT_TAKEOVER",
+            "account_id": "ACC7004",
+            "transaction_id": "TX7004",
+            "provenance": {
+                "detector": "account_takeover",
+                "method": "deterministic_rule",
+                "version": "999",
+            },
+        }
+    ]
+
+    try:
+        engine.assess(findings)
+    except ValueError as exc:
+        assert "version" in str(exc).lower()
+    else:
+        raise AssertionError(
+            "Unsupported provenance version must be rejected"
+        )

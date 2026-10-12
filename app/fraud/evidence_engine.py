@@ -18,6 +18,7 @@ class EvidenceEngine:
     }
 
     ALLOWED_PROVENANCE_METHODS = {"deterministic_rule"}
+    ALLOWED_PROVENANCE_VERSIONS = {"1"}
 
     def __init__(
         self,
@@ -97,6 +98,13 @@ class EvidenceEngine:
             if method not in self.ALLOWED_PROVENANCE_METHODS:
                 raise ValueError(
                     "Unsupported provenance method"
+                )
+
+            version = finding_provenance.get("version")
+
+            if version not in self.ALLOWED_PROVENANCE_VERSIONS:
+                raise ValueError(
+                    "Unsupported provenance version"
                 )
 
         deterministic_transaction_ids = {
