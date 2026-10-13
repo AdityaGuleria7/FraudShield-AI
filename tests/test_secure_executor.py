@@ -116,3 +116,41 @@ def test_allowed_action_on_forbidden_resource_is_blocked(tmp_path):
     assert decision.allowed is False
     assert result is None
     assert executed is False
+
+def test_operation_exception_does_not_leak_message_to_audit(tmp_path):
+    audit_file = tmp_path / "audit_ledger.jsonl"
+    registry = OperationRegistry()
+    secret = "SENSITIVE-TEST-DETAIL-123"
+
+    def failing_operation():
+        raise RuntimeError(secret)
+
+    registry.register(
+        action="READ",
+        resource="TRANSACTION_DATA",
+        operation=failing_operation,
+    )
+
+    executor = SecureExecutor(
+        operation_registry=registry,
+        audit_path=str(audit_file),
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="SENSITIVE-TEST-DETAIL-123"):
+        executor.execute(
+            agent_id="DATA_ANALYST_001",
+            action="READ",
+            resource="TRANSACTION_DATA",
+            operation=failing_operation,
+            task_id="SECURITY-ERROR-001",
+        )
+
+    audit_text = audit_file.read_text()
+    events = [json.loads(line) for line in audit_text.splitlines()]
+
+    assert secret not in audit_text
+    assert events[-1]["status"] == "ERROR"
+    assert events[-1]["data"]["error_type"] == "RuntimeError"
+    assert events[-1]["data"]["error"] == "Operation failed; details withheld."

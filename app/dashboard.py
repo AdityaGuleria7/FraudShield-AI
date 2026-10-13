@@ -4,6 +4,8 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
+import re
 import tempfile
 from dataclasses import asdict, is_dataclass
 from enum import Enum
@@ -18,6 +20,9 @@ from app.core.orchestrator import FraudShieldOrchestrator
 from app.data.transaction_generator import TransactionGenerator
 from app.fraud.scenario_generator import FraudScenarioGenerator
 from app.ml.ieee_scorer import score_transactions
+
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
@@ -266,9 +271,10 @@ def demo() -> JSONResponse:
         return JSONResponse(content=result)
 
     except Exception as exc:
+        logger.exception("Demo pipeline failed")
         raise HTTPException(
             status_code=500,
-            detail=f"Demo pipeline failed: {type(exc).__name__}: {exc}",
+            detail="Demo pipeline failed. Check server logs for details.",
         ) from exc
 
 
@@ -301,9 +307,10 @@ async def analyze_csv(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("CSV analysis failed")
         raise HTTPException(
             status_code=500,
-            detail=f"Analysis failed: {type(exc).__name__}: {exc}",
+            detail="Analysis failed. Check server logs for details.",
         ) from exc
     finally:
         await file.close()
@@ -335,11 +342,44 @@ async def ieee_score_csv(
             raise HTTPException(status_code=422, detail="The CSV file is empty.")
 
         try:
-            frame = __import__("pandas").read_csv(io.BytesIO(contents))
+            decoded = contents.decode("utf-8-sig")
+            csv_reader = csv.reader(io.StringIO(decoded), strict=True)
+            header = next(csv_reader, [])
+            normalized_header = [str(name).strip() for name in header]
+            if not normalized_header or any(not name for name in normalized_header):
+                raise HTTPException(
+                    status_code=422,
+                    detail="The CSV must have non-empty column names.",
+                )
+            if len(normalized_header) != len(set(normalized_header)):
+                raise HTTPException(
+                    status_code=422,
+                    detail="The CSV contains duplicate column names.",
+                )
+
+            for row_number, row in enumerate(csv_reader, start=1):
+                # Pandas ignores blank lines, so allow them here too.
+                if not row:
+                    continue
+                if len(row) != len(normalized_header):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"Row {row_number} has {len(row)} fields; "
+                            f"expected {len(normalized_header)}."
+                        ),
+                    )
+
+            import pandas as pd
+
+            frame = pd.read_csv(io.StringIO(decoded))
+            frame.columns = [str(name).strip() for name in frame.columns]
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(
                 status_code=422,
-                detail="Could not parse the uploaded CSV.",
+                detail="Could not parse the uploaded CSV. Use a valid UTF-8 CSV file.",
             ) from exc
 
         if frame.empty:
@@ -360,27 +400,49 @@ async def ieee_score_csv(
                 detail="The CSV contains duplicate column names.",
             )
 
-        # Require explicit metadata; do not infer identity availability.
-        if "identity_available" not in frame.columns:
+        # Validate required CSV columns together.
+        required_columns = {"TransactionAmt", "identity_available"}
+        missing_columns = sorted(required_columns - set(frame.columns))
+
+        if missing_columns:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "CSV must include identity_available (0 or 1). "
-                    "This is request metadata and does not directly affect "
-                    "the model score."
+                    "CSV is missing required columns: "
+                    + ", ".join(missing_columns)
+                    + ". identity_available must be 0 or 1 and is metadata only."
                 ),
             )
 
-        records = frame.where(frame.notna(), None).to_dict(orient="records")
+        # Cast to object before replacing nulls; float columns otherwise retain NaN.
+        records = frame.astype(object).where(frame.notna(), None).to_dict(
+            orient="records"
+        )
         results = []
+        batch_result = None
 
         for start in range(0, len(records), 100):
             batch = records[start:start + 100]
             try:
                 batch_result = score_transactions(batch)
             except ValueError as exc:
-                raise HTTPException(status_code=422, detail=str(exc)) from exc
+                detail = re.sub(
+                    r"\bRow (\d+)\b",
+                    lambda match: f"Row {start + int(match.group(1))}",
+                    str(exc),
+                )
+                raise HTTPException(status_code=422, detail=detail) from exc
+
+            # Keep row numbers unique and aligned to the uploaded CSV across batches.
+            for result in batch_result["results"]:
+                result["row"] = start + int(result["row"])
             results.extend(batch_result["results"])
+
+        if batch_result is None:
+            raise HTTPException(
+                status_code=422,
+                detail="The CSV must contain at least one transaction row.",
+            )
 
         return JSONResponse(content={
             "model_type": batch_result["model_type"],
@@ -399,11 +461,16 @@ async def ieee_score_csv(
     except HTTPException:
         raise
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("IEEE-CIS model artifact unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail="IEEE-CIS model artifact unavailable.",
+        ) from exc
     except Exception as exc:
+        logger.exception("IEEE-CIS CSV scoring failed")
         raise HTTPException(
             status_code=500,
-            detail=f"IEEE-CIS CSV scoring failed: {type(exc).__name__}",
+            detail="IEEE-CIS CSV scoring failed. Check server logs for details.",
         ) from exc
     finally:
         await file.close()
@@ -424,13 +491,18 @@ def ieee_score(payload: dict[str, Any]) -> JSONResponse:
         result = score_transactions(rows)
         return JSONResponse(content=result)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.exception("IEEE-CIS model artifact unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail="IEEE-CIS model artifact unavailable.",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
+        logger.exception("IEEE-CIS scoring failed")
         raise HTTPException(
             status_code=500,
-            detail=f"IEEE-CIS scoring failed: {type(exc).__name__}",
+            detail="IEEE-CIS scoring failed. Check server logs for details.",
         ) from exc
 
 
@@ -533,6 +605,17 @@ h1 { font-size: 23px; margin: 0; letter-spacing: -.5px; }
 .bad { color: var(--red); background: #3a202b; }
 .warn { color: var(--yellow); background: #3a3020; }
 .stack { display: grid; gap: 11px; }
+.advanced-panel { margin-top: 16px; }
+.advanced-panel > summary {
+  cursor: pointer; font-weight: 650; list-style: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.advanced-panel > summary::-webkit-details-marker { display: none; }
+.advanced-panel > summary::after { content: "+"; color: var(--muted); font-size: 20px; }
+.advanced-panel[open] > summary::after { content: "−"; }
+.advanced-content { margin-top: 18px; }
+.primary-workflow { margin-top: 18px; }
+
 .item {
   border-bottom: 1px solid var(--border); padding: 0 0 12px;
   overflow-wrap: anywhere;
@@ -589,27 +672,70 @@ footer { color: var(--muted); font-size: 11px; padding: 18px 0; }
     <div class="eyebrow">Investigations workspace</div>
     <h2>Detect patterns. Inspect evidence. Verify decisions.</h2>
     <p>
-      Run synthetic transactions through your existing FraudShield pipeline
-      or upload a CSV to review data quality, findings, agent assessments,
-      investigation output, and audit information.
+      Start with a guided demo or score an IEEE-CIS feature CSV. FraudShield
+      keeps model scores separate from evidence, agent reviews, and policy decisions.
     </p>
     <div class="actions">
       <button class="primary" id="demoButton" onclick="runDemo()">
         Run synthetic demo
       </button>
-      <label class="upload">
-        <input id="csvFile" type="file" accept=".csv,text/csv">
-      </label>
-      <button id="uploadButton" onclick="runCsv()">Analyze CSV</button>
     </div>
     <p class="subtitle" style="margin-top:13px">
-      Local development interface. Use synthetic or properly authorized,
-      non-sensitive data only.
+      Experimental model scores are not calibrated fraud probabilities or production decisions.
+      Use only data you are authorized to process.
     </p>
   </section>
 
 
-  <section class="panel" id="ieeeScoringPanel">
+  <section class="panel primary-workflow" id="ieeeCsvScoringPanel" style="margin-top:18px">
+    <div class="eyebrow">Batch scoring</div>
+    <h3>IEEE-CIS CSV Scoring</h3>
+    <p class="muted">
+      Upload up to 5,000 rows of compatible transaction features.
+      CSV files must include TransactionAmt and identity_available (0 or 1).
+      Identity availability is metadata only; it does not directly affect scores.
+      Maximum file size: 5 MB.
+    </p>
+    <div class="actions">
+      <input id="ieeeCsvFile" type="file" accept=".csv,text/csv">
+      <button id="ieeeCsvButton" onclick="runIeeeCsv()">Score CSV</button>
+      <button id="ieeeCsvDownload" onclick="downloadIeeeCsv()" disabled>
+        Download results CSV
+      </button>
+    </div>
+    <p id="ieeeCsvStatus" class="muted" role="status" aria-live="polite"></p>
+    <div id="ieeeCsvResults" style="display:none; margin-top:16px">
+      <div class="grid metrics">
+        <div>
+          <div class="metric-label">Rows scored</div>
+          <div class="metric-value" id="ieeeCsvCount">0</div>
+        </div>
+        <div>
+          <div class="metric-label">Model status</div>
+          <div class="tag warn" id="ieeeCsvModelStatus">EXPERIMENTAL_NOT_APPROVED</div>
+        </div>
+      </div>
+      <p class="muted" id="ieeeCsvSemantics"></p>
+      <div style="overflow-x:auto">
+        <table style="width:100%; border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:9px">Row</th>
+              <th style="text-align:left; padding:9px">Transaction ID</th>
+              <th style="text-align:left; padding:9px">Experimental score</th>
+            </tr>
+          </thead>
+          <tbody id="ieeeCsvTable"></tbody>
+        </table>
+      </div>
+      <p class="muted" id="ieeeCsvWarning"></p>
+    </div>
+  </section>
+
+
+  <details class="panel advanced-panel" id="ieeeScoringPanel">
+    <summary>Advanced: score a single transaction</summary>
+    <div class="advanced-content">
     <div class="eyebrow">Experimental machine learning</div>
     <h3>IEEE-CIS Transaction Scoring</h3>
     <p class="muted">
@@ -695,53 +821,25 @@ footer { color: var(--muted); font-size: 11px; padding: 18px 0; }
       and not approved evidence. It must not independently trigger account
       restrictions, payment declines, or other adverse actions.
     </p>
-  </section>
+  </div>
+  </details>
 
 
-  <section class="panel" id="ieeeCsvScoringPanel" style="margin-top:18px">
-    <div class="eyebrow">Batch scoring</div>
-    <h3>IEEE-CIS CSV Scoring</h3>
-    <p class="muted">
-      Upload up to 5,000 rows of compatible transaction features.
-      CSV files must include TransactionAmt and identity_available (0 or 1).
-      Identity availability is metadata only; it does not directly affect scores.
-      Maximum file size: 5 MB.
-    </p>
-    <div class="actions">
-      <input id="ieeeCsvFile" type="file" accept=".csv,text/csv">
-      <button id="ieeeCsvButton" onclick="runIeeeCsv()">Score CSV</button>
-      <button id="ieeeCsvDownload" onclick="downloadIeeeCsv()" disabled>
-        Download results CSV
-      </button>
-    </div>
-    <p id="ieeeCsvStatus" class="muted" role="status" aria-live="polite"></p>
-    <div id="ieeeCsvResults" style="display:none; margin-top:16px">
-      <div class="grid metrics">
-        <div>
-          <div class="metric-label">Rows scored</div>
-          <div class="metric-value" id="ieeeCsvCount">0</div>
-        </div>
-        <div>
-          <div class="metric-label">Model status</div>
-          <div class="tag warn" id="ieeeCsvModelStatus">EXPERIMENTAL_NOT_APPROVED</div>
-        </div>
+  <details class="panel advanced-panel" id="caseCsvPanel">
+    <summary>Advanced: analyze a FraudShield case CSV</summary>
+    <div class="advanced-content">
+      <p class="muted">
+        This workflow uses FraudShield's internal transaction schema, not the
+        IEEE-CIS competition schema. Required fields include transaction_id,
+        account_id, device_id, ip_address, country, merchant_category, amount,
+        timestamp, and is_fraud.
+      </p>
+      <div class="actions">
+        <input id="csvFile" type="file" accept=".csv,text/csv">
+        <button id="uploadButton" onclick="runCsv()">Analyze case CSV</button>
       </div>
-      <p class="muted" id="ieeeCsvSemantics"></p>
-      <div style="overflow-x:auto">
-        <table style="width:100%; border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:9px">Row</th>
-              <th style="text-align:left; padding:9px">Transaction ID</th>
-              <th style="text-align:left; padding:9px">Experimental score</th>
-            </tr>
-          </thead>
-          <tbody id="ieeeCsvTable"></tbody>
-        </table>
-      </div>
-      <p class="muted" id="ieeeCsvWarning"></p>
     </div>
-  </section>
+  </details>
 
 <div id="error"></div>
 
@@ -1254,7 +1352,7 @@ function downloadIeeeCsv() {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function toggleRaw() {

@@ -58,6 +58,12 @@ def test_dashboard_homepage(client):
 
     assert response.status_code == 200
     assert "FraudShield AI" in response.text
+    assert 'id="ieeeCsvScoringPanel"' in response.text
+    assert 'id="ieeeScoringPanel"' in response.text
+    assert response.text.index('id="ieeeCsvScoringPanel"') < response.text.index(
+        'id="ieeeScoringPanel"'
+    )
+    assert "<summary>Advanced: score a single transaction</summary>" in response.text
 
 
 def test_ieee_score_endpoint_returns_experimental_score(
@@ -109,7 +115,8 @@ def test_ieee_score_returns_503_when_artifact_is_missing(
     )
 
     assert response.status_code == 503
-    assert "Test artifact unavailable" in response.json()["detail"]
+    assert response.json()["detail"] == "IEEE-CIS model artifact unavailable."
+    assert "Test artifact unavailable" not in response.json()["detail"]
 
 
 def test_csv_endpoint_rejects_non_csv_file(client):
@@ -120,3 +127,93 @@ def test_csv_endpoint_rejects_non_csv_file(client):
 
     assert response.status_code == 400
     assert "csv" in response.json()["detail"].lower()
+
+
+
+def test_ieee_csv_endpoint_scores_rows_and_preserves_global_row_numbers(
+    client, mock_artifact
+):
+    header = "TransactionID,TransactionAmt,identity_available,card1,ProductCD\n"
+    rows = [
+        f"{100000 + index},{10 + index},0,12345,W"
+        for index in range(101)
+    ]
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("transactions.csv", header + "\n".join(rows), "text/csv")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scored_count"] == 101
+    assert payload["results"][0]["row"] == 1
+    assert payload["results"][99]["row"] == 100
+    assert payload["results"][100]["row"] == 101
+    assert payload["decision_made"] is False
+
+
+def test_ieee_csv_endpoint_rejects_duplicate_headers(client):
+    content = (
+        "TransactionAmt,identity_available,card1,card1,ProductCD\n"
+        "125,0,123,456,W\n"
+    )
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("duplicates.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "duplicate column" in response.json()["detail"].lower()
+
+
+def test_ieee_csv_endpoint_rejects_missing_identity_metadata(client):
+    content = "TransactionAmt,card1,ProductCD\n125,12345,W\n"
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("missing-identity.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "identity_available" in response.json()["detail"]
+
+
+
+def test_ieee_csv_endpoint_reports_correct_row_after_batch_boundary(
+    client, mock_artifact
+):
+    header = "TransactionAmt,identity_available,card1,ProductCD\n"
+    rows = ["10,0,12345,W"] * 100 + ["not-a-number,0,12345,W"]
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("bad-row.csv", header + "\n".join(rows), "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "Row 101" in response.json()["detail"]
+
+def test_ieee_csv_endpoint_rejects_rows_with_extra_fields(client):
+    content = (
+        "TransactionID,TransactionAmt,identity_available\n"
+        "999401,125.50,0,EXTRA_FIELD\n"
+    )
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("malformed.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "row 1" in response.json()["detail"].lower()
+    assert "field" in response.json()["detail"].lower()
+
+def test_ieee_csv_endpoint_rejects_unclosed_quotes(client):
+    content = (
+        "TransactionAmt,identity_available,ProductCD\n"
+        '125.50,0,"W\n'
+    )
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("unclosed_quote.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 422
+    assert "Could not parse the uploaded CSV" in response.json()["detail"]

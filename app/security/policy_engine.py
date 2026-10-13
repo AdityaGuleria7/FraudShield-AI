@@ -30,6 +30,16 @@ class PolicyEngine:
             role="Data Analyst Guardian",
             risk_level="MEDIUM",
         ),
+        "FRAUD_PATTERN_ANALYST_001": AgentIdentity(
+            agent_id="FRAUD_PATTERN_ANALYST_001",
+            role="Fraud Pattern Analyst",
+            risk_level="MEDIUM",
+        ),
+        "FRAUD_PATTERN_REVIEWER_001": AgentIdentity(
+            agent_id="FRAUD_PATTERN_REVIEWER_001",
+            role="Fraud Pattern Analyst Guardian",
+            risk_level="HIGH",
+        ),
     }
 
     # Explicit least-privilege matrix:
@@ -45,6 +55,16 @@ class PolicyEngine:
             "READ": {
                 "TRANSACTION_DATA",
                 "ANALYSIS_RESULTS",
+            },
+        },
+        "FRAUD_PATTERN_ANALYST_001": {
+            "READ": {
+                "PATTERN_FINDINGS",
+            },
+        },
+        "FRAUD_PATTERN_REVIEWER_001": {
+            "READ": {
+                "PATTERN_ANALYSIS_RESULTS",
             },
         },
     }

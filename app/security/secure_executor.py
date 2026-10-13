@@ -76,7 +76,7 @@ class SecureExecutor:
                 data={
                     "resource": resource,
                     "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    "error": "Operation failed; details withheld.",
                 },
             )
             raise

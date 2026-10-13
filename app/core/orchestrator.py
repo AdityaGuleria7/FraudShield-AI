@@ -9,6 +9,8 @@ from app.fraud.evidence_engine import EvidenceEngine
 from app.fraud.pattern_engine import FraudPatternEngine
 from app.investigation.case_builder import InvestigationCaseBuilder
 from app.data_quality.validator import DataQualityValidator
+from app.security.operation_registry import OperationRegistry
+from app.security.secure_executor import SecureExecutor
 
 
 class FraudShieldOrchestrator:
@@ -25,6 +27,29 @@ class FraudShieldOrchestrator:
         self.fraud_pattern_reviewer = FraudPatternReviewerAgent()
 
         self.audit_ledger = AuditLedger(audit_path)
+
+        self.operation_registry = OperationRegistry()
+        def fraud_pattern_analysis_operation(
+            analysis_task_id: str,
+            findings: list[dict],
+        ):
+            return self.fraud_pattern_analyst.analyze(
+                task_id=analysis_task_id,
+                findings=findings,
+            )
+
+        self._fraud_pattern_analysis_operation = (
+            fraud_pattern_analysis_operation
+        )
+        self.operation_registry.register(
+            action="READ",
+            resource="PATTERN_FINDINGS",
+            operation=self._fraud_pattern_analysis_operation,
+        )
+        self.secure_executor = SecureExecutor(
+            operation_registry=self.operation_registry,
+            audit_path=f"{audit_path}.security.jsonl",
+        )
 
     def run(self, task_id: str, data: dict):
 
@@ -192,10 +217,20 @@ class FraudShieldOrchestrator:
 
         # STAGE 6 — FRAUD PATTERN ANALYST
 
-        pattern_analysis = self.fraud_pattern_analyst.analyze(
+        decision, pattern_analysis = self.secure_executor.execute(
+            agent_id=self.fraud_pattern_analyst.agent_id,
+            action="READ",
+            resource="PATTERN_FINDINGS",
+            operation=self._fraud_pattern_analysis_operation,
             task_id=task_id,
+            analysis_task_id=task_id,
             findings=pattern_findings,
         )
+
+        if not decision.allowed or pattern_analysis is None:
+            raise PermissionError(
+                "Fraud pattern analysis was denied by security policy."
+            )
 
         self.audit_ledger.record(
             agent_id=pattern_analysis.agent_id,

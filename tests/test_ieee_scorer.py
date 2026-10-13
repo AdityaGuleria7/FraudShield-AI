@@ -91,3 +91,9 @@ def test_negative_transaction_amount_is_rejected(mock_artifact):
 
     with pytest.raises(ValueError):
         ieee_scorer.score_transactions([transaction])
+
+
+
+def test_pandas_nan_is_treated_as_missing():
+    assert ieee_scorer._is_missing(float("nan")) is True
+    assert ieee_scorer._is_missing(float("inf")) is False

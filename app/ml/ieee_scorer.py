@@ -66,10 +66,23 @@ def load_artifact() -> dict[str, Any]:
 
 
 def _is_missing(value: Any) -> bool:
+    """Recognize common CSV nulls, including pandas/numpy scalar NaNs."""
     if value is None:
         return True
     if isinstance(value, str):
         return value.strip().lower() in {"", "na", "nan", "null", "none"}
+
+    # pandas.read_csv represents blank numeric cells as NaN. Treat those as
+    # missing so the trained pipeline's imputer can handle them.
+    try:
+        missing = pd.isna(value)
+        if isinstance(missing, bool):
+            return missing
+        # numpy.bool_ is scalar but isn't a built-in bool.
+        if getattr(missing, "ndim", None) == 0:
+            return bool(missing)
+    except (TypeError, ValueError):
+        pass
     return False
 
 

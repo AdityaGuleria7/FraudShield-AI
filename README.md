@@ -23,7 +23,7 @@ Rather than allowing one agent to make consequential decisions independently, Fr
 - [Project Structure](#project-structure)
 - [Audit Integrity and External Checkpoints](#audit-integrity-and-external-checkpoints)
 - [Limitations](#limitations)
-- [Roadmap](#roadmap)
+- [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md)\n- [Roadmap](#roadmap)
 
 ## Key Features
 
@@ -152,7 +152,7 @@ If a pinned package does not support your Python version or platform, resolve th
 python -m pytest -q
 ```
 
-The current development baseline is **258 passing tests**. Your result may differ if the code or environment changes.
+The source review baseline is **276 passing tests**. Re-run the suite in your own environment after any changes.
 
 ### 5. Explore the modules
 
@@ -168,7 +168,15 @@ Start with these files:
 - `app/audit/external_checkpoints.py` — external checkpoint anchoring.
 - `tests/` — automated behavior and security tests.
 
-The repository does not currently document a verified, unified command for launching a complete interactive application. Start with the test suite and module-level workflows.
+### 6. Launch the dashboard
+
+```bash
+python -m uvicorn app.dashboard:app --reload
+```
+
+Open `http://127.0.0.1:8000`. The synthetic demo and internal-schema case CSV workflow do not require the IEEE-CIS model artifact. IEEE-CIS scoring requires the separately trained artifact at `artifacts/ieee_extratrees_identity_enriched.joblib`; without it, the scoring API returns a clear unavailable response.
+
+The primary dashboard workflow is batch-scoring a compatible IEEE-CIS feature CSV. Single-transaction scoring and FraudShield's separate case-CSV schema are available under collapsed **Advanced** sections.
 
 ## Running Tests
 
