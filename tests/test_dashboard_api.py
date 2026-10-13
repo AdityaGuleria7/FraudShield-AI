@@ -45,6 +45,71 @@ def valid_transaction():
     }
 
 
+
+def valid_analysis_csv(amount="125.50"):
+    return (
+        "transaction_id,account_id,device_id,ip_address,country,"
+        "merchant_category,amount,timestamp,is_fraud\n"
+        f"txn-1,acct-1,dev-1,192.0.2.1,IN,retail,{amount},"
+        "2026-01-01T10:00:00Z,false\n"
+    )
+
+
+@pytest.mark.parametrize("amount", ["NaN", "Infinity", "-Infinity"])
+def test_parse_csv_rejects_non_finite_amounts(amount):
+    with pytest.raises(dashboard.HTTPException) as exc:
+        dashboard.parse_csv(valid_analysis_csv(amount).encode())
+
+    assert exc.value.status_code == 400
+    assert "amount" in exc.value.detail.lower()
+
+
+def test_parse_csv_accepts_valid_transaction():
+    transactions = dashboard.parse_csv(valid_analysis_csv().encode())
+
+    assert len(transactions) == 1
+    assert transactions[0]["amount"] == 125.5
+    assert transactions[0]["is_fraud"] is False
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "transaction_id,account_id,device_id,ip_address,country,"
+        "merchant_category,amount,timestamp,is_fraud,is_fraud",
+        ",transaction_id,account_id,device_id,ip_address,country,"
+        "merchant_category,amount,timestamp,is_fraud",
+    ],
+)
+def test_parse_csv_rejects_duplicate_or_blank_headers(header):
+    content = header + "\n" + ",".join(["x"] * len(header.split(","))) + "\n"
+
+    with pytest.raises(dashboard.HTTPException) as exc:
+        dashboard.parse_csv(content.encode())
+
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "txn-1,acct-1,dev-1,192.0.2.1,IN,retail,125.50,"
+        "2026-01-01T10:00:00Z,false,EXTRA",
+        "txn-1,acct-1,dev-1,192.0.2.1,IN,retail,125.50,"
+        "2026-01-01T10:00:00Z",
+    ],
+)
+def test_parse_csv_rejects_rows_with_wrong_field_count(row):
+    header = (
+        "transaction_id,account_id,device_id,ip_address,country,"
+        "merchant_category,amount,timestamp,is_fraud\n"
+    )
+
+    with pytest.raises(dashboard.HTTPException) as exc:
+        dashboard.parse_csv((header + row + "\n").encode())
+
+    assert exc.value.status_code == 400
+
 def test_health_endpoint(client):
     response = client.get("/api/health")
 

@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import logging
+import math
 import re
 import tempfile
 from dataclasses import asdict, is_dataclass
@@ -103,90 +104,127 @@ def parse_csv(contents: bytes) -> list[dict[str, Any]]:
             detail="The CSV must use UTF-8 encoding.",
         ) from exc
 
-    reader = csv.DictReader(io.StringIO(text))
-
-    if not reader.fieldnames:
-        raise HTTPException(
-            status_code=400,
-            detail="The CSV file is empty or has no header row.",
-        )
-
-    headers = {
-        header.strip()
-        for header in reader.fieldnames
-        if header and header.strip()
-    }
-
-    missing = REQUIRED_FIELDS - headers
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required CSV columns: {', '.join(sorted(missing))}",
-        )
-
-    transactions = []
-
-    for row_number, raw_row in enumerate(reader, start=2):
-        if not raw_row or all(
-            value is None or not str(value).strip()
-            for value in raw_row.values()
-        ):
-            continue
-
-        if len(transactions) >= MAX_TRANSACTIONS:
-            raise HTTPException(
-                status_code=413,
-                detail="A maximum of 5,000 transactions is allowed per upload.",
-            )
-
-        row = {
-            str(key).strip(): (
-                value.strip() if isinstance(value, str) else value
-            )
-            for key, value in raw_row.items()
-            if key is not None
-        }
-
-        try:
-            amount = float(row["amount"])
-        except (TypeError, ValueError) as exc:
+    try:
+        reader = csv.DictReader(io.StringIO(text, newline=""))
+        if not reader.fieldnames:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid amount on CSV row {row_number}.",
-            ) from exc
-
-        if amount < 0 or amount > 1_000_000:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Amount out of permitted range on CSV row {row_number}.",
+                detail="The CSV file is empty or has no header row.",
             )
 
-        fraud_value = str(row["is_fraud"]).strip().lower()
-        if fraud_value in {"true", "1", "yes"}:
-            is_fraud = True
-        elif fraud_value in {"false", "0", "no"}:
-            is_fraud = False
-        else:
+        normalized_headers = [
+            header.strip() if header is not None else ""
+            for header in reader.fieldnames
+        ]
+        if any(not header for header in normalized_headers):
+            raise HTTPException(
+                status_code=400,
+                detail="CSV column headers must not be blank.",
+            )
+        if len(set(normalized_headers)) != len(normalized_headers):
+            raise HTTPException(
+                status_code=400,
+                detail="CSV column headers must be unique.",
+            )
+
+        reader.fieldnames = normalized_headers
+        missing = REQUIRED_FIELDS - set(normalized_headers)
+        if missing:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Invalid is_fraud value on CSV row {row_number}. "
-                    "Use true/false, yes/no, or 1/0."
+                    f"Missing required CSV columns: "
+                    f"{', '.join(sorted(missing))}"
                 ),
             )
 
-        row["amount"] = amount
-        row["is_fraud"] = is_fraud
-        transactions.append(row)
+        transactions = []
+        for row_number, raw_row in enumerate(reader, start=2):
+            if raw_row is None or all(
+                value is None or not str(value).strip()
+                for value in raw_row.values()
+            ):
+                continue
+
+            if None in raw_row or any(
+                value is None for value in raw_row.values()
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Incorrect number of fields on CSV row {row_number}."
+                    ),
+                )
+
+            if len(transactions) >= MAX_TRANSACTIONS:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        "A maximum of 5,000 transactions is allowed per upload."
+                    ),
+                )
+
+            row = {
+                str(key).strip(): (
+                    value.strip() if isinstance(value, str) else value
+                )
+                for key, value in raw_row.items()
+                if key is not None
+            }
+
+            try:
+                amount = float(row["amount"])
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid amount on CSV row {row_number}.",
+                ) from exc
+
+            if not math.isfinite(amount):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid amount on CSV row {row_number}.",
+                )
+
+            if amount < 0 or amount > 1_000_000:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Amount out of permitted range on CSV row {row_number}."
+                    ),
+                )
+
+            fraud_value = str(row["is_fraud"]).strip().lower()
+            if fraud_value in {"true", "1", "yes"}:
+                is_fraud = True
+            elif fraud_value in {"false", "0", "no"}:
+                is_fraud = False
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Invalid is_fraud value on CSV row {row_number}. "
+                        "Use true/false, yes/no, or 1/0."
+                    ),
+                )
+
+            row["amount"] = amount
+            row["is_fraud"] = is_fraud
+            transactions.append(row)
+
+    except csv.Error as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="The CSV file contains malformed CSV data.",
+        ) from exc
 
     if not transactions:
         raise HTTPException(
             status_code=400,
-            detail="The CSV does not contain any transactions.",
+            detail="The CSV file contains no transactions.",
         )
 
     return transactions
-
 
 def analyze(
     transactions: list[dict[str, Any]],
