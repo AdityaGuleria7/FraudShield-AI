@@ -257,6 +257,7 @@ class FraudShieldOrchestrator:
         return {
             "analysis": analysis,
             "review": review,
+            "data_quality": data_quality,
             "pattern_analysis": pattern_analysis,
             "pattern_review": pattern_review,
             "pattern_findings": pattern_findings,
