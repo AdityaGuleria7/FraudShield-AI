@@ -25,15 +25,20 @@ class DataAnalystAgent:
                 ],
             )
 
+        transactions = data.get("transactions")
+
+        if isinstance(transactions, list):
+            finding = f"Received {len(transactions)} transactions for analysis."
+        else:
+            finding = f"Received {len(data)} top-level data fields for analysis."
+
         return AgentMessage(
             agent_id=self.agent_id,
             agent_role=self.agent_role,
             task_id=task_id,
             status="PASS",
             confidence=0.90,
-            findings=[
-                f"Received {len(data)} data fields for analysis."
-            ],
+            findings=[finding],
             evidence=[
                 {
                     "type": "input_validation",
