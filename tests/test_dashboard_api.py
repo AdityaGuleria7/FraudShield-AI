@@ -1,3 +1,4 @@
+import base64
 import numpy as np
 from pathlib import Path
 import pytest
@@ -13,8 +14,47 @@ class FakeModel:
 
 
 @pytest.fixture
-def client():
-    return TestClient(dashboard.app)
+def client(monkeypatch):
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_USERNAME", "fraudshield-test-user")
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_PASSWORD", "fraudshield-test-password")
+    token = base64.b64encode(b"fraudshield-test-user:fraudshield-test-password").decode()
+    return TestClient(
+        dashboard.app, headers={"Authorization": f"Basic {token}"}
+    )
+
+
+def test_dashboard_requires_authentication(monkeypatch):
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_USERNAME", "fraudshield-test-user")
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_PASSWORD", "fraudshield-test-password")
+
+    with TestClient(dashboard.app) as unauthenticated_client:
+        response = unauthenticated_client.get("/")
+    assert response.status_code == 401
+    assert response.headers.get("www-authenticate") == "Basic"
+
+
+def test_dashboard_rejects_invalid_credentials(monkeypatch):
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_USERNAME", "fraudshield-test-user")
+    monkeypatch.setenv("FRAUDSHIELD_AUTH_PASSWORD", "fraudshield-test-password")
+
+    token = base64.b64encode(b"fraudshield-test-user:wrong-password").decode()
+    with TestClient(
+        dashboard.app, headers={"Authorization": f"Basic {token}"}
+    ) as invalid_client:
+        response = invalid_client.get("/")
+    assert response.status_code == 401
+
+
+def test_dashboard_fails_closed_without_auth_configuration(monkeypatch):
+    monkeypatch.delenv("FRAUDSHIELD_AUTH_USERNAME", raising=False)
+    monkeypatch.delenv("FRAUDSHIELD_AUTH_PASSWORD", raising=False)
+
+    token = base64.b64encode(b"test-user:test-password").decode()
+    with TestClient(
+        dashboard.app, headers={"Authorization": f"Basic {token}"}
+    ) as configured_client:
+        response = configured_client.get("/")
+    assert response.status_code == 503
 
 
 @pytest.fixture
@@ -328,3 +368,18 @@ def test_dashboard_audit_logs_persist_with_unique_task_ids(
         assert response["audit_integrity"]["valid"] is True
         assert response["audit_integrity"]["events"] == 1
         assert response["transaction_count"] == 1
+
+
+def test_rate_limit_returns_429_and_retry_after(client, monkeypatch):
+    monkeypatch.setattr(dashboard, "RATE_LIMIT_REQUESTS", 1)
+    monkeypatch.setattr(dashboard, "RATE_LIMIT_WINDOW_SECONDS", 60)
+    dashboard._rate_limit_buckets.clear()
+
+    first = client.get("/api/demo")
+    second = client.get("/api/demo")
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert int(second.headers["retry-after"]) >= 1
+
+    dashboard._rate_limit_buckets.clear()

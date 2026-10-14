@@ -12,9 +12,13 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from pathlib import Path
+import secrets
+import threading
+import time
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.audit.ledger import AuditLedger
@@ -35,6 +39,97 @@ app = FastAPI(
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_TRANSACTIONS = 5000
+
+
+security = HTTPBasic(auto_error=False)
+
+
+def require_auth(
+    credentials: HTTPBasicCredentials | None = Depends(security),
+) -> str:
+    """Require credentials configured through environment variables."""
+    expected_username = os.environ.get("FRAUDSHIELD_AUTH_USERNAME", "")
+    expected_password = os.environ.get("FRAUDSHIELD_AUTH_PASSWORD", "")
+
+    if not expected_username or not expected_password:
+        logger.error("Authentication is not configured; refusing access.")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication is not configured on this server.",
+        )
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    username_ok = secrets.compare_digest(
+        credentials.username, expected_username
+    )
+    password_ok = secrets.compare_digest(
+        credentials.password, expected_password
+    )
+
+    if not (username_ok and password_ok):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    return credentials.username
+
+RATE_LIMIT_REQUESTS = 60
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_CLIENTS = 10_000
+_rate_limit_lock = threading.Lock()
+_rate_limit_buckets: dict[str, tuple[int, float]] = {}
+
+
+def require_rate_limit(
+    request: Request,
+    username: str = Depends(require_auth),
+) -> str:
+    """Limit authenticated requests per client IP using a fixed window."""
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"{username}:{client_ip}"
+    now = time.monotonic()
+
+    with _rate_limit_lock:
+        expired = [
+            bucket_key
+            for bucket_key, (_, started) in _rate_limit_buckets.items()
+            if now - started >= RATE_LIMIT_WINDOW_SECONDS
+        ]
+        for bucket_key in expired:
+            del _rate_limit_buckets[bucket_key]
+
+        count, started = _rate_limit_buckets.get(key, (0, now))
+        if count >= RATE_LIMIT_REQUESTS:
+            retry_after = max(
+                1, int(RATE_LIMIT_WINDOW_SECONDS - (now - started) + 0.999)
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Please retry later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        if (
+            key not in _rate_limit_buckets
+            and len(_rate_limit_buckets) >= RATE_LIMIT_MAX_CLIENTS
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="Rate limiter is temporarily at capacity.",
+            )
+
+        _rate_limit_buckets[key] = (count + 1, started)
+
+    return username
+
 
 REQUIRED_FIELDS = {
     "transaction_id",
@@ -289,12 +384,12 @@ def health() -> dict[str, Any]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard() -> str:
+def dashboard(username: str = Depends(require_auth)) -> str:
     return HTML
 
 
 @app.get("/api/demo")
-def demo() -> JSONResponse:
+def demo(username: str = Depends(require_rate_limit)) -> JSONResponse:
     try:
         generator = TransactionGenerator(seed=42)
         transactions = generator.generate(count=10)
@@ -321,6 +416,7 @@ def demo() -> JSONResponse:
 
 @app.post("/api/analyze-csv")
 async def analyze_csv(
+    username: str = Depends(require_rate_limit),
     file: UploadFile = File(...),
 ) -> JSONResponse:
     filename = file.filename or ""
@@ -359,6 +455,7 @@ async def analyze_csv(
 
 @app.post("/api/ieee-score-csv")
 async def ieee_score_csv(
+    username: str = Depends(require_rate_limit),
     file: UploadFile = File(...),
 ) -> JSONResponse:
     """Score compatible IEEE-CIS feature rows from a CSV upload."""
@@ -518,7 +615,10 @@ async def ieee_score_csv(
 
 
 @app.post("/api/ieee-score")
-def ieee_score(payload: dict[str, Any]) -> JSONResponse:
+def ieee_score(
+    payload: dict[str, Any],
+    username: str = Depends(require_rate_limit),
+) -> JSONResponse:
     """Return experimental IEEE-CIS scores without making fraud decisions."""
     rows = payload.get("transactions") if isinstance(payload, dict) else None
 
