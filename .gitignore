@@ -16,3 +16,7 @@ artifacts/
 
 # Generated experiment reports
 reports/
+
+# Persistent audit logs
+var/audit/
+*.security.jsonl

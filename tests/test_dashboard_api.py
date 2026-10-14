@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -282,3 +283,48 @@ def test_ieee_csv_endpoint_rejects_unclosed_quotes(client):
 
     assert response.status_code == 422
     assert "Could not parse the uploaded CSV" in response.json()["detail"]
+
+
+def test_dashboard_audit_logs_persist_with_unique_task_ids(
+    tmp_path, monkeypatch
+):
+    audit_dir = tmp_path / "audit"
+    monkeypatch.setenv("FRAUDSHIELD_AUDIT_DIR", str(audit_dir))
+    task_ids = []
+
+    class FakeOrchestrator:
+        def __init__(self, audit_path):
+            self.audit_path = Path(audit_path)
+
+        def run(self, task_id, data):
+            task_ids.append(task_id)
+            ledger = dashboard.AuditLedger(str(self.audit_path))
+            ledger.record(
+                agent_id="TEST_AGENT",
+                agent_role="Test Agent",
+                task_id=task_id,
+                action="TEST_AUDIT",
+                status="PASS",
+                confidence=1.0,
+                data={"transaction_count": len(data["transactions"])},
+            )
+            return {"status": "PASS"}
+
+    monkeypatch.setattr(
+        dashboard, "FraudShieldOrchestrator", FakeOrchestrator
+    )
+
+    first = dashboard.analyze([{"transaction_id": "txn-1"}])
+    second = dashboard.analyze([{"transaction_id": "txn-2"}])
+
+    assert len(task_ids) == 2
+    assert task_ids[0] != task_ids[1]
+    assert all(task_id.startswith("FRAUDSHIELD-") for task_id in task_ids)
+
+    for task_id, response in zip(task_ids, (first, second)):
+        audit_path = audit_dir / f"{task_id}.jsonl"
+        assert audit_path.is_file()
+        assert dashboard.AuditLedger(str(audit_path)).verify_chain() is True
+        assert response["audit_integrity"]["valid"] is True
+        assert response["audit_integrity"]["events"] == 1
+        assert response["transaction_count"] == 1

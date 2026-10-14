@@ -6,8 +6,9 @@ import io
 import json
 import logging
 import math
+import os
 import re
-import tempfile
+import uuid
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -230,50 +231,52 @@ def analyze(
     transactions: list[dict[str, Any]],
     demo_notice: bool = False,
 ) -> dict[str, Any]:
-    """Run the existing FraudShield pipeline with an isolated audit file."""
-    with tempfile.TemporaryDirectory(prefix="fraudshield-") as temp_dir:
-        audit_path = Path(temp_dir) / "dashboard_audit.jsonl"
+    """Run the FraudShield pipeline and retain a separate audit trail per run."""
+    audit_dir = Path(
+        os.environ.get("FRAUDSHIELD_AUDIT_DIR", "var/audit")
+    )
+    audit_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
-        orchestrator = FraudShieldOrchestrator(
-            audit_path=str(audit_path)
-        )
+    task_id = f"FRAUDSHIELD-{uuid.uuid4().hex.upper()}"
+    audit_path = audit_dir / f"{task_id}.jsonl"
 
-        result = orchestrator.run(
-            task_id="FRAUDSHIELD-DASHBOARD",
-            data={"transactions": transactions},
-        )
+    orchestrator = FraudShieldOrchestrator(audit_path=str(audit_path))
+    result = orchestrator.run(
+        task_id=task_id,
+        data={"transactions": transactions},
+    )
 
-        ledger = AuditLedger(str(audit_path))
+    ledger = AuditLedger(str(audit_path))
 
-        try:
-            chain_valid = ledger.verify_chain()
-            if isinstance(chain_valid, dict):
-                chain_valid = chain_valid.get("valid", False)
-        except (AttributeError, TypeError, ValueError):
-            chain_valid = None
+    try:
+        chain_valid = ledger.verify_chain()
+        if isinstance(chain_valid, dict):
+            chain_valid = chain_valid.get("valid", False)
+    except (AttributeError, TypeError, ValueError):
+        chain_valid = None
 
-        try:
-            audit_events = sum(
-                1
-                for line in audit_path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            ) if audit_path.exists() else 0
-        except OSError:
-            audit_events = 0
+    try:
+        audit_events = sum(
+            1
+            for line in audit_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ) if audit_path.exists() else 0
+    except OSError:
+        audit_events = 0
 
-        response = plain(result)
+    response = plain(result)
 
-        if not isinstance(response, dict):
-            response = {"pipeline_result": response}
+    if not isinstance(response, dict):
+        response = {"pipeline_result": response}
 
-        response["transaction_count"] = len(transactions)
-        response["audit_integrity"] = {
-            "valid": chain_valid,
-            "events": audit_events,
-        }
-        response["demo_notice"] = demo_notice
+    response["transaction_count"] = len(transactions)
+    response["audit_integrity"] = {
+        "valid": chain_valid,
+        "events": audit_events,
+    }
+    response["demo_notice"] = demo_notice
 
-        return response
+    return response
 
 
 @app.get("/api/health")
