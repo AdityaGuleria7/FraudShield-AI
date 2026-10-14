@@ -152,7 +152,7 @@ If a pinned package does not support your Python version or platform, resolve th
 python -m pytest -q
 ```
 
-The source review baseline is **276 passing tests**. Re-run the suite in your own environment after any changes.
+The latest verified local run completed with **305 passing tests**. Re-run the suite in your own environment after any changes.
 
 ### 5. Explore the modules
 
@@ -168,7 +168,29 @@ Start with these files:
 - `app/audit/external_checkpoints.py` — external checkpoint anchoring.
 - `tests/` — automated behavior and security tests.
 
-### 6. Launch the dashboard
+### 6. Run the synthetic demo
+
+From the repository root, run:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/run_demo.py
+```
+
+The demo generates synthetic transactions, injects a velocity-attack scenario, runs the investigation workflow, and verifies the audit hash chain. It uses temporary audit storage and cleans it up after a successful run.
+
+Expected checkpoints include a completed demo and `Hash chain valid: True`. The number of transactions and findings may depend on the implementation. This synthetic demonstration does not measure real-world fraud-detection accuracy.
+
+### 7. Launch the dashboard
+
+Configure both `FRAUDSHIELD_AUTH_USERNAME` and `FRAUDSHIELD_AUTH_PASSWORD` before launching the dashboard. For local development, set them in your terminal:
+
+```bash
+export FRAUDSHIELD_AUTH_USERNAME="local-demo-user"
+export FRAUDSHIELD_AUTH_PASSWORD="replace-with-a-strong-local-password"
+python -m uvicorn app.dashboard:app --reload
+```
+
+Open `http://127.0.0.1:8000` and sign in with the credentials you configured. These are illustrative placeholders, not production credentials. Never commit real credentials or place them in the README. Basic authentication should only be used over HTTPS when accessed across a network.
 
 ```bash
 python -m uvicorn app.dashboard:app --reload
