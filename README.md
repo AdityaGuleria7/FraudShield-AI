@@ -193,10 +193,6 @@ python -m uvicorn app.dashboard:app --reload
 
 Open `http://127.0.0.1:8000` and sign in with the credentials you configured. These are illustrative placeholders, not production credentials. Never commit real credentials or place them in the README. Basic authentication should only be used over HTTPS when accessed across a network.
 
-```bash
-python -m uvicorn app.dashboard:app --reload
-```
-
 Open `http://127.0.0.1:8000`. The synthetic demo and internal-schema case CSV workflow do not require the IEEE-CIS model artifact. IEEE-CIS scoring requires the separately trained artifact at `artifacts/ieee_extratrees_identity_enriched.joblib`; without it, the scoring API returns a clear unavailable response.
 
 The primary dashboard workflow is batch-scoring a compatible IEEE-CIS feature CSV. Single-transaction scoring and FraudShield's separate case-CSV schema are available under collapsed **Advanced** sections.
