@@ -36,6 +36,25 @@ Prior exploratory runs recorded these results for the same chronological test pe
 
 These are exploratory internal results, not an independent final benchmark. The test period was reused during experimentation, so it must not be described as a pristine untouched holdout. Re-run a frozen evaluation on a later reserved period before making comparative performance claims in a portfolio or approving any model for operational use.
 
+### Three-period chronological evaluation
+
+A separate report uses an earlier 70% of transactions for training, the next 15% for threshold selection, and the latest 15% for testing, with strict TransactionDT boundaries. The partitions contain 413,378 training rows, 88,581 threshold-selection rows, and 88,581 test rows; the test partition contains 3,083 fraud cases.
+
+| Model | Average precision | ROC-AUC | Precision at selected threshold | Recall at selected threshold |
+|---|---:|---:|---:|---:|
+| Logistic Regression | 0.1125 | 0.7400 | 19.68% | 10.74% |
+| Extra Trees | 0.1439 | 0.7769 | 23.63% | 11.45% |
+
+Extra Trees review-capacity results on that test partition:
+
+| Review capacity | Transactions reviewed | Fraud cases found | Precision | Recall |
+|---|---:|---:|---:|---:|
+| Top 1% | 885 | 223 | 25.20% | 7.23% |
+| Top 2% | 1,771 | 421 | 23.77% | 13.66% |
+| Top 5% | 4,429 | 911 | 20.57% | 29.55% |
+
+Source: `reports/ieee_three_period_validation.json`. These are experimental results for this dataset split, not expected production performance. The project notes indicate evaluation periods were reused during development, so this should not be described as an untouched final benchmark.
+
 ## Reproduce locally
 
 1. Download the competition data through Kaggle while signed in and following the competition rules. Do not commit the raw data to Git.

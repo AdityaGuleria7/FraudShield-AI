@@ -23,7 +23,8 @@ Rather than allowing one agent to make consequential decisions independently, Fr
 - [Project Structure](#project-structure)
 - [Audit Integrity and External Checkpoints](#audit-integrity-and-external-checkpoints)
 - [Limitations](#limitations)
-- [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md)\n- [Roadmap](#roadmap)
+- [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md)
+- [Roadmap](#roadmap)
 
 ## Key Features
 
