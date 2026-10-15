@@ -33,8 +33,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="FraudShield AI",
-    description="Evidence-driven, multi-agent fraud investigation dashboard",
-    version="1.0.0",
+    description=(
+        "Evidence-driven, multi-agent fraud detection platform. "
+        "Detects velocity attacks, impossible travel, account takeover, "
+        "and new-device high-value transactions with full audit trails."
+    ),
+    version="2.0.0",
 )
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -140,8 +144,11 @@ REQUIRED_FIELDS = {
     "merchant_category",
     "amount",
     "timestamp",
-    "is_fraud",
 }
+
+# is_fraud is optional: ground-truth labels are not available at inference time.
+# When absent it defaults to False. When present it enables evaluation workflows.
+OPTIONAL_LABEL_FIELD = "is_fraud"
 
 
 def plain(value: Any) -> Any:
@@ -290,7 +297,8 @@ def parse_csv(contents: bytes) -> list[dict[str, Any]]:
                     ),
                 )
 
-            fraud_value = str(row["is_fraud"]).strip().lower()
+            fraud_raw = row.get(OPTIONAL_LABEL_FIELD, "false")
+            fraud_value = str(fraud_raw).strip().lower()
             if fraud_value in {"true", "1", "yes"}:
                 is_fraud = True
             elif fraud_value in {"false", "0", "no"}:
@@ -380,6 +388,7 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "application": "FraudShield AI",
         "version": app.version,
+        "description": "Evidence-driven multi-agent fraud detection platform",
     }
 
 
@@ -628,8 +637,10 @@ def ieee_score(
             detail="Request must contain a 'transactions' array.",
         )
 
+    explain = bool(payload.get("explain", True)) if isinstance(payload, dict) else True
+
     try:
-        result = score_transactions(rows)
+        result = score_transactions(rows, explain=explain)
         return JSONResponse(content=result)
     except FileNotFoundError as exc:
         logger.exception("IEEE-CIS model artifact unavailable")
@@ -653,855 +664,844 @@ HTML = r"""
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FraudShield AI | Intelligence Console</title>
+<title>FraudShield AI | Fraud Intelligence Platform</title>
 <style>
 :root {
   color-scheme: dark;
-  --bg: #090d16;
+  --bg: #07090f;
+  --surface: #0d1117;
   --panel: #111827;
-  --panel2: #151e30;
-  --border: #253147;
-  --text: #edf2fc;
-  --muted: #91a0b8;
-  --accent: #7c9cff;
-  --green: #5ee0b0;
-  --red: #ff7f91;
-  --yellow: #ffd47a;
+  --panel2: #161e2e;
+  --border: #1f2d42;
+  --border2: #253147;
+  --text: #e8edf8;
+  --muted: #7a8fa8;
+  --muted2: #566880;
+  --accent: #6b8fff;
+  --accent2: #4a6fe8;
+  --green: #3dd68c;
+  --green-bg: #0d2a1f;
+  --red: #f87171;
+  --red-bg: #2a0d0d;
+  --yellow: #fbbf24;
+  --yellow-bg: #2a1f0d;
+  --orange: #fb923c;
+  --orange-bg: #2a170d;
+  --purple: #a78bfa;
+  --radius: 14px;
+  --radius-sm: 8px;
 }
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 14px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-button, input { font: inherit; }
-button {
-  cursor: pointer;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 15px;
-  background: var(--panel2);
-  color: var(--text);
-}
-button.primary {
-  background: var(--accent);
-  color: #091020;
-  border-color: transparent;
-  font-weight: 700;
-}
-button:disabled { opacity: .55; cursor: wait; }
-.shell { max-width: 1400px; margin: auto; padding: 28px; }
-header {
+button, input, select { font: inherit; }
+a { color: var(--accent); text-decoration: none; }
+
+/* ── Layout ──────────────────────────────────────────────── */
+.shell { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+
+/* ── Header ──────────────────────────────────────────────── */
+.top-bar {
   display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 16px; margin-bottom: 28px;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 32px;
+  padding-bottom: 18px; border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 13px; }
-.logo {
-  display: grid; place-items: center; width: 46px; height: 46px;
-  border-radius: 14px; background: #202d4b; color: var(--accent);
-  font-size: 23px; font-weight: 800;
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo-wrap {
+  display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 12px; background: linear-gradient(135deg,#1a2a5e,#2a1a5e);
+  color: var(--accent); font-size: 20px; font-weight: 900; letter-spacing: -1px;
+  box-shadow: 0 0 0 1px var(--border2);
 }
-h1 { font-size: 23px; margin: 0; letter-spacing: -.5px; }
-.subtitle, .muted { color: var(--muted); }
-.subtitle { margin-top: 2px; font-size: 12px; }
-.status { color: var(--green); font-size: 12px; }
-.status::before {
-  content: ""; display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; background: var(--green); margin-right: 8px;
+.brand-name { font-size: 18px; font-weight: 700; letter-spacing: -.4px; }
+.brand-tag { font-size: 11px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; margin-top: 2px; }
+.top-bar-right { display: flex; align-items: center; gap: 16px; }
+.status-dot {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--muted);
 }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--muted2);
+  transition: background .4s;
+}
+.dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.ver-badge {
+  font-size: 11px; padding: 3px 9px; border-radius: 20px;
+  background: var(--panel2); border: 1px solid var(--border2);
+  color: var(--muted); font-weight: 600;
+}
+
+/* ── Hero ────────────────────────────────────────────────── */
 .hero {
-  padding: 26px; border: 1px solid var(--border); border-radius: 18px;
-  background: linear-gradient(120deg, #17223a, #101726 65%);
-  margin-bottom: 20px;
+  background: linear-gradient(135deg, #0f1a30 0%, #0d1117 60%, #0f0d1f 100%);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  padding: 32px 36px; margin-bottom: 24px; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; top: -60px; right: -60px;
+  width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(107,143,255,.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 .eyebrow {
-  color: var(--accent); font-size: 11px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 1.8px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
 }
-.hero h2 { font-size: 27px; margin: 7px 0; }
-.hero p { color: var(--muted); max-width: 720px; margin: 0 0 18px; }
-.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.upload {
-  border: 1px dashed #405171; padding: 9px; border-radius: 10px;
-  background: #0c1422; max-width: 100%;
+.hero-title { font-size: 28px; font-weight: 800; margin: 0 0 10px; letter-spacing: -.6px; line-height: 1.25; }
+.hero-sub { color: var(--muted); max-width: 680px; margin: 0 0 24px; line-height: 1.6; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button {
+  cursor: pointer; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 10px 18px;
+  background: var(--panel2); color: var(--text);
+  font-weight: 600; transition: all .15s;
 }
-.grid { display: grid; gap: 16px; margin-bottom: 16px; }
-.metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.panel {
-  min-width: 0; padding: 20px; background: var(--panel);
-  border: 1px solid var(--border); border-radius: 16px;
+button:hover:not(:disabled) { border-color: var(--accent); background: #1a2540; }
+button.primary {
+  background: var(--accent); color: #040812;
+  border-color: transparent; font-weight: 700;
 }
-.metric-label { color: var(--muted); font-size: 12px; }
-.metric-value { font-size: 26px; font-weight: 750; margin: 5px 0; }
-.panel h3 { font-size: 14px; margin: 0 0 15px; }
-.panel p { overflow-wrap: anywhere; }
-.tag {
-  display: inline-block; border-radius: 7px; padding: 3px 8px;
-  font-size: 11px; background: #273248; color: var(--text);
-  overflow-wrap: anywhere;
-}
-.good { color: var(--green); background: #12372f; }
-.bad { color: var(--red); background: #3a202b; }
-.warn { color: var(--yellow); background: #3a3020; }
-.stack { display: grid; gap: 11px; }
-.advanced-panel { margin-top: 16px; }
-.advanced-panel > summary {
-  cursor: pointer; font-weight: 650; list-style: none;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-}
-.advanced-panel > summary::-webkit-details-marker { display: none; }
-.advanced-panel > summary::after { content: "+"; color: var(--muted); font-size: 20px; }
-.advanced-panel[open] > summary::after { content: "−"; }
-.advanced-content { margin-top: 18px; }
-.primary-workflow { margin-top: 18px; }
+button.primary:hover:not(:disabled) { background: var(--accent2); }
+button:disabled { opacity: .5; cursor: wait; }
+.disclaimer { font-size: 11.5px; color: var(--muted2); margin-top: 14px; }
 
-.item {
-  border-bottom: 1px solid var(--border); padding: 0 0 12px;
-  overflow-wrap: anywhere;
+/* ── Section panel ───────────────────────────────────────── */
+.section-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 24px; margin-bottom: 16px;
 }
-.item:last-child { border-bottom: 0; padding-bottom: 0; }
-.item-title { font-weight: 650; margin-bottom: 4px; }
-.item-detail { font-size: 12px; color: var(--muted); }
-.detail {
-  display: flex; justify-content: space-between; gap: 14px;
-  border-bottom: 1px solid var(--border); padding: 9px 0;
+.section-panel h3 {
+  font-size: 13px; font-weight: 700; margin: 0 0 18px;
+  color: var(--text); letter-spacing: .1px;
 }
-.detail:last-child { border-bottom: 0; }
-.detail span { color: var(--muted); }
-.detail strong { text-align: right; overflow-wrap: anywhere; }
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 18px;
+}
+.section-header h3 { margin: 0; }
+
+/* ── Metrics bar ─────────────────────────────────────────── */
+.metrics-bar {
+  display: grid; gap: 14px; margin-bottom: 16px;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+}
+.metric-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+}
+.metric-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; }
+.metric-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+.metric-sub { font-size: 11px; color: var(--muted2); margin-top: 5px; }
+
+/* ── Risk badge ──────────────────────────────────────────── */
+.risk-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .8px;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
+}
+.risk-CRITICAL { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,113,113,.25); }
+.risk-HIGH     { background: var(--orange-bg); color: var(--orange); border: 1px solid rgba(251,146,60,.25); }
+.risk-MEDIUM   { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(251,191,36,.25); }
+.risk-LOW      { background: var(--green-bg); color: var(--green); border: 1px solid rgba(61,214,140,.25); }
+.risk-NONE     { background: var(--panel2); color: var(--muted); border: 1px solid var(--border2); }
+
+/* ── Executive summary card ──────────────────────────────── */
+.exec-summary {
+  background: linear-gradient(135deg,#0f1d32,#0d1117);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  padding: 22px 26px; margin-bottom: 16px;
+}
+.exec-summary .eyebrow { margin-bottom: 8px; }
+.exec-summary p { margin: 0; line-height: 1.7; color: var(--text); font-size: 14.5px; }
+
+/* ── Explanation cards ───────────────────────────────────── */
+.findings-grid { display: grid; gap: 14px; }
+.finding-card {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.finding-card-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border);
+}
+.finding-card-title { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+.finding-card-summary { font-size: 13px; color: var(--muted); margin-bottom: 0; line-height: 1.5; }
+.finding-card-body { padding: 14px 18px; }
+.finding-context {
+  font-size: 12.5px; color: var(--muted); background: var(--surface);
+  border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 12px;
+  border-left: 3px solid var(--accent);
+}
+.key-facts { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 5px; }
+.key-facts li {
+  font-size: 12.5px; display: flex; align-items: flex-start; gap: 8px;
+}
+.key-facts li::before { content: "→"; color: var(--muted2); flex-shrink: 0; }
+.risk-contribution {
+  font-size: 11.5px; color: var(--muted2); border-top: 1px solid var(--border);
+  padding-top: 10px; margin-top: 2px;
+}
+
+/* ── Two-column grid ─────────────────────────────────────── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+
+/* ── Detail rows ─────────────────────────────────────────── */
+.detail-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.detail-row:last-child { border-bottom: 0; }
+.detail-key { color: var(--muted); white-space: nowrap; }
+.detail-val { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+
+/* ── IEEE scoring table ──────────────────────────────────── */
+.score-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.score-table th {
+  text-align: left; padding: 8px 12px; color: var(--muted);
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.score-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.score-table tr:last-child td { border-bottom: 0; }
+.score-table tr:hover td { background: var(--surface); }
+
+/* ── Collapsible details ─────────────────────────────────── */
+details.adv-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 16px;
+}
+details.adv-panel > summary {
+  cursor: pointer; padding: 18px 22px; font-weight: 700; font-size: 13px;
+  list-style: none; display: flex; justify-content: space-between; align-items: center;
+  user-select: none;
+}
+details.adv-panel > summary::-webkit-details-marker { display: none; }
+details.adv-panel > summary::after { content: "+"; color: var(--muted); font-size: 20px; font-weight: 400; }
+details.adv-panel[open] > summary::after { content: "−"; }
+details.adv-panel > summary:hover { color: var(--accent); }
+.adv-body { padding: 0 22px 22px; }
+
+/* ── Upload row ──────────────────────────────────────────── */
+.upload-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+input[type="file"] {
+  background: var(--surface); border: 1px dashed var(--border2);
+  border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text);
+}
+.status-msg { font-size: 12.5px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+
+/* ── Error box ───────────────────────────────────────────── */
+.error-box {
+  display: none; padding: 12px 16px; border-radius: var(--radius-sm);
+  background: var(--red-bg); border: 1px solid rgba(248,113,113,.3);
+  color: var(--red); font-size: 13px; margin-bottom: 16px; overflow-wrap: anywhere;
+}
+
+/* ── Raw JSON ────────────────────────────────────────────── */
 pre {
-  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 450px;
-  overflow: auto; padding: 15px; border-radius: 10px;
-  background: #090e18; color: #c7d7f7; font-size: 12px;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 500px;
+  overflow: auto; padding: 16px; border-radius: var(--radius-sm);
+  background: #040810; color: #8ba7d4; font-size: 12px; font-family: "SF Mono", "Fira Code", monospace;
+  border: 1px solid var(--border); margin: 0;
 }
-#error {
-  display: none; padding: 12px; border: 1px solid #63303b;
-  background: #2a1720; color: var(--red); border-radius: 10px;
-  margin-bottom: 16px; overflow-wrap: anywhere;
+
+/* ── Tag ─────────────────────────────────────────────────── */
+.tag {
+  display: inline-block; border-radius: 5px; padding: 2px 8px;
+  font-size: 11px; font-weight: 600; background: var(--panel2);
+  border: 1px solid var(--border2); color: var(--muted);
 }
+.tag.ok { background: var(--green-bg); color: var(--green); border-color: transparent; }
+.tag.warn { background: var(--yellow-bg); color: var(--yellow); border-color: transparent; }
+.tag.bad { background: var(--red-bg); color: var(--red); border-color: transparent; }
+
+/* ── Footer ──────────────────────────────────────────────── */
+.site-footer {
+  margin-top: 32px; padding-top: 18px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted2); display: flex;
+  justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+
+/* ── Hidden ──────────────────────────────────────────────── */
 #results { display: none; }
-footer { color: var(--muted); font-size: 11px; padding: 18px 0; }
-@media (max-width: 850px) {
-  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .two { grid-template-columns: 1fr; }
+[hidden] { display: none !important; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .metrics-bar { grid-template-columns: repeat(2, 1fr); }
+  .two-col { grid-template-columns: 1fr; }
 }
-@media (max-width: 520px) {
+@media (max-width: 540px) {
   .shell { padding: 15px; }
-  .metrics { grid-template-columns: 1fr 1fr; gap: 9px; }
-  .panel { padding: 14px; }
-  .metric-value { font-size: 21px; }
-  .hero h2 { font-size: 23px; }
+  .hero { padding: 22px 18px; }
+  .hero-title { font-size: 22px; }
+  .metrics-bar { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric-value { font-size: 22px; }
 }
 </style>
 </head>
 <body>
 <div class="shell">
-  <header>
+
+  <!-- ── TOP BAR ────────────────────────────────────────── -->
+  <div class="top-bar">
     <div class="brand">
-      <div class="logo">F</div>
+      <div class="logo-wrap">FS</div>
       <div>
-        <h1>FraudShield AI</h1>
-        <div class="subtitle">MULTI-AGENT FRAUD INTELLIGENCE CONSOLE</div>
+        <div class="brand-name">FraudShield AI</div>
+        <div class="brand-tag">Multi-Agent Fraud Intelligence Platform</div>
       </div>
     </div>
-    <div id="health" class="status">Checking local service...</div>
-  </header>
-
-  <section class="hero">
-    <div class="eyebrow">Investigations workspace</div>
-    <h2>Detect patterns. Inspect evidence. Verify decisions.</h2>
-    <p>
-      Start with a guided demo or score an IEEE-CIS feature CSV. FraudShield
-      keeps model scores separate from evidence, agent reviews, and policy decisions.
-    </p>
-    <div class="actions">
-      <button class="primary" id="demoButton" onclick="runDemo()">
-        Run synthetic demo
-      </button>
+    <div class="top-bar-right">
+      <div class="status-dot">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Checking...</span>
+      </div>
+      <div class="ver-badge">v2.0.0</div>
     </div>
-    <p class="subtitle" style="margin-top:13px">
-      Experimental model scores are not calibrated fraud probabilities or production decisions.
-      Use only data you are authorized to process.
+  </div>
+
+  <!-- ── HERO ───────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="eyebrow">Evidence-driven fraud detection</div>
+    <h2 class="hero-title">Detect. Explain. Investigate.</h2>
+    <p class="hero-sub">
+      FraudShield AI combines deterministic fraud pattern detection, machine learning,
+      and multi-agent adversarial review into a single auditable pipeline —
+      explaining every flagged transaction in plain language.
+    </p>
+    <div class="btn-row">
+      <button class="primary" id="demoBtn" onclick="runDemo()">▶ Run Synthetic Demo</button>
+      <button id="scrollToBatch" onclick="document.getElementById('ieeeCsvScoringPanel').scrollIntoView({behavior:'smooth'})">📁 Score IEEE-CIS CSV</button>
+    </div>
+    <p class="disclaimer">
+      Experimental model scores are not calibrated fraud probabilities and do not constitute
+      approved fraud decisions. Use only data you are authorized to process.
     </p>
   </section>
 
-
-  <section class="panel primary-workflow" id="ieeeCsvScoringPanel" style="margin-top:18px">
-    <div class="eyebrow">Batch scoring</div>
-    <h3>IEEE-CIS CSV Scoring</h3>
-    <p class="muted">
-      Upload up to 5,000 rows of compatible transaction features.
-      CSV files must include TransactionAmt and identity_available (0 or 1).
-      Identity availability is metadata only; it does not directly affect scores.
+  <!-- ── BATCH CSV SCORING ──────────────────────────────── -->
+  <section class="section-panel" id="ieeeCsvScoringPanel">
+    <div class="section-header">
+      <div>
+        <div class="eyebrow" style="margin-bottom:4px">IEEE-CIS Batch Scoring</div>
+        <h3>Upload Transaction CSV</h3>
+      </div>
+      <button id="batchDownloadBtn" onclick="downloadIeeeCsv()" disabled>⬇ Download Results</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
+      Upload up to 5,000 rows of compatible IEEE-CIS feature data.
+      Required columns: <code>TransactionAmt</code>, <code>identity_available</code> (0 or 1).
       Maximum file size: 5 MB.
     </p>
-    <div class="actions">
+    <div class="upload-row">
       <input id="ieeeCsvFile" type="file" accept=".csv,text/csv">
-      <button id="ieeeCsvButton" onclick="runIeeeCsv()">Score CSV</button>
-      <button id="ieeeCsvDownload" onclick="downloadIeeeCsv()" disabled>
-        Download results CSV
-      </button>
+      <button id="batchBtn" onclick="runIeeeCsv()">Score CSV</button>
     </div>
-    <p id="ieeeCsvStatus" class="muted" role="status" aria-live="polite"></p>
-    <div id="ieeeCsvResults" style="display:none; margin-top:16px">
-      <div class="grid metrics">
-        <div>
+    <div class="status-msg" id="batchStatus"></div>
+
+    <div id="batchResults" style="display:none;margin-top:20px">
+      <div class="metrics-bar" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:16px">
+        <div class="metric-card">
           <div class="metric-label">Rows scored</div>
-          <div class="metric-value" id="ieeeCsvCount">0</div>
+          <div class="metric-value" id="batchCount">0</div>
         </div>
-        <div>
+        <div class="metric-card">
           <div class="metric-label">Model status</div>
-          <div class="tag warn" id="ieeeCsvModelStatus">EXPERIMENTAL_NOT_APPROVED</div>
+          <div style="margin-top:8px"><span class="tag warn" id="batchModelStatus">EXPERIMENTAL</span></div>
+          <div class="metric-sub" id="batchSemantics"></div>
         </div>
       </div>
-      <p class="muted" id="ieeeCsvSemantics"></p>
       <div style="overflow-x:auto">
-        <table style="width:100%; border-collapse:collapse">
+        <table class="score-table">
           <thead>
             <tr>
-              <th style="text-align:left; padding:9px">Row</th>
-              <th style="text-align:left; padding:9px">Transaction ID</th>
-              <th style="text-align:left; padding:9px">Experimental score</th>
+              <th>Row</th>
+              <th>Transaction ID</th>
+              <th>Risk Score</th>
+              <th>Signal</th>
             </tr>
           </thead>
-          <tbody id="ieeeCsvTable"></tbody>
+          <tbody id="batchTable"></tbody>
         </table>
       </div>
-      <p class="muted" id="ieeeCsvWarning"></p>
+      <p class="status-msg" id="batchWarning" style="margin-top:10px"></p>
     </div>
   </section>
 
-
-  <details class="panel advanced-panel" id="ieeeScoringPanel">
+  <!-- ── ADVANCED: SINGLE TRANSACTION ──────────────────── -->
+  <details class="adv-panel" id="ieeeScoringPanel">
     <summary>Advanced: score a single transaction</summary>
-    <div class="advanced-content">
-    <div class="eyebrow">Experimental machine learning</div>
-    <h3>IEEE-CIS Transaction Scoring</h3>
-    <p class="muted">
-      Score a compatible transaction using the experimental IEEE-CIS model.
-      Leave unavailable optional features blank.
-    </p>
-
-    <form id="ieeeScoreForm" onsubmit="runIeeeScore(event)">
-      <div class="grid two">
-        <label>
-          Transaction amount *
-          <input id="ieeeAmount" type="number" min="0" step="any"
-                 required placeholder="125.50">
+    <div class="adv-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
+        Score one transaction using the experimental IEEE-CIS model.
+        Leave optional fields blank.
+      </p>
+      <form id="ieeeScoreForm" onsubmit="runIeeeScore(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <label>Transaction Amount *<br>
+          <input id="ieeeAmount" type="number" min="0" step="any" required placeholder="125.50" style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
         </label>
-        <label>
-          Identity data source status *
-          <select id="ieeeIdentityAvailable" required>
+        <label>Identity Data Available *<br>
+          <select id="ieeeIdentityAvailable" required style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
             <option value="">Choose one</option>
             <option value="0">Unavailable (0)</option>
             <option value="1">Available (1)</option>
           </select>
         </label>
-        <label>
-          Transaction ID (optional)
-          <input id="ieeeTransactionId" type="text" placeholder="999001">
+        <label>Transaction ID (optional)<br>
+          <input id="ieeeTransactionId" type="text" placeholder="999001" style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
         </label>
-        <label>
-          card1 (optional)
-          <input id="ieeeCard1" type="text" placeholder="12345">
+        <label>card1 (optional)<br>
+          <input id="ieeeCard1" type="text" placeholder="12345" style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
         </label>
-        <label>
-          card2 (optional)
-          <input id="ieeeCard2" type="text" placeholder="111">
+        <label>card4 (optional)<br>
+          <input id="ieeeCard4" type="text" placeholder="visa" style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
         </label>
-        <label>
-          ProductCD (optional)
-          <input id="ieeeProductCD" type="text" placeholder="W">
+        <label>ProductCD (optional)<br>
+          <input id="ieeeProductCD" type="text" placeholder="W" style="width:100%;margin-top:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text)">
         </label>
-        <label>
-          card4 (optional)
-          <input id="ieeeCard4" type="text" placeholder="visa">
-        </label>
-        <label>
-          card6 (optional)
-          <input id="ieeeCard6" type="text" placeholder="debit">
-        </label>
-      </div>
-
-      <p class="muted">
-        This form supplies the fields shown above. Other model features are
-        left missing and handled by the model's configured preprocessing.
-        This is request metadata only; it does not directly affect the model score.
-        Identity features must be supplied separately to influence the prediction.
-      </p>
-      <button class="primary" id="ieeeScoreButton" type="submit">
-        Score transaction
-      </button>
-    </form>
-
-    <div id="ieeeError" role="alert" style="display:none; margin-top:12px"></div>
-
-    <section id="ieeeScoreResult" style="display:none; margin-top:18px"
-             aria-live="polite">
-      <h3>Experimental score result</h3>
-      <div class="detail">
-        <span>Model status</span>
-        <strong id="ieeeModelStatus">—</strong>
-      </div>
-      <div class="detail">
-        <span>Experimental model score</span>
-        <strong id="ieeeScoreValue">—</strong>
-      </div>
-      <div class="detail">
-        <span>Transaction ID</span>
-        <strong id="ieeeScoreTransactionId">—</strong>
-      </div>
-      <p id="ieeeScoreSemantics" class="muted"></p>
-      <p id="ieeeScoreWarning" class="muted"></p>
-    </section>
-
-    <p class="muted" style="margin-top:14px">
-      Safety notice: this score is uncalibrated, not a fraud probability,
-      and not approved evidence. It must not independently trigger account
-      restrictions, payment declines, or other adverse actions.
-    </p>
-  </div>
+        <div style="grid-column:1/-1">
+          <button class="primary" id="ieeeScoreButton" type="submit">Score Transaction</button>
+        </div>
+      </form>
+      <div id="ieeeError" class="error-box" role="alert"></div>
+      <section id="ieeeScoreResult" style="display:none" aria-live="polite">
+        <div class="detail-row"><span class="detail-key">Model status</span><strong class="detail-val" id="ieeeModelStatus">—</strong></div>
+        <div class="detail-row"><span class="detail-key">Experimental score</span><strong class="detail-val" id="ieeeScoreValue">—</strong></div>
+        <div class="detail-row"><span class="detail-key">Transaction ID</span><strong class="detail-val" id="ieeeScoreTransactionId">—</strong></div>
+        <div id="ieeeShapDrivers" style="margin-top:14px;display:none">
+          <div style="font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Top SHAP Risk Drivers</div>
+          <div id="ieeeShapDriversList" style="display:grid;gap:6px"></div>
+        </div>
+        <p id="ieeeScoreSemantics" class="status-msg" style="margin-top:8px"></p>
+        <p id="ieeeScoreWarning" class="status-msg"></p>
+      </section>
+    </div>
   </details>
 
-
-  <details class="panel advanced-panel" id="caseCsvPanel">
-    <summary>Advanced: analyze a FraudShield case CSV</summary>
-    <div class="advanced-content">
-      <p class="muted">
-        This workflow uses FraudShield's internal transaction schema, not the
-        IEEE-CIS competition schema. Required fields include transaction_id,
-        account_id, device_id, ip_address, country, merchant_category, amount,
-        timestamp, and is_fraud.
+  <!-- ── ADVANCED: CASE CSV ─────────────────────────────── -->
+  <details class="adv-panel" id="caseCsvPanel">
+    <summary>Advanced — Analyze a FraudShield Case CSV</summary>
+    <div class="adv-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:14px">
+        Upload transactions in FraudShield's schema. Required fields:
+        <code>transaction_id, account_id, device_id, ip_address, country, merchant_category, amount, timestamp</code>.
+        The <code>is_fraud</code> label is optional (for evaluation mode).
+        See <code>examples/</code> for ready-to-use sample files.
       </p>
-      <div class="actions">
+      <div class="upload-row">
         <input id="csvFile" type="file" accept=".csv,text/csv">
-        <button id="uploadButton" onclick="runCsv()">Analyze case CSV</button>
+        <button id="uploadButton" onclick="runCsv()">Analyze Case CSV</button>
       </div>
     </div>
   </details>
 
-<div id="error"></div>
+  <!-- ── ERROR ──────────────────────────────────────────── -->
+  <div class="error-box" id="error"></div>
 
+  <!-- ── RESULTS ────────────────────────────────────────── -->
   <section id="results">
-    <div class="grid metrics">
-      <div class="panel">
-        <div class="metric-label">Transactions analyzed</div>
-        <div class="metric-value" id="transactionCount">—</div>
-        <div class="muted">Records processed</div>
+
+    <!-- Metrics bar -->
+    <div class="metrics-bar">
+      <div class="metric-card">
+        <div class="metric-label">Transactions</div>
+        <div class="metric-value" id="metricTxn">—</div>
+        <div class="metric-sub">Records analyzed</div>
       </div>
-      <div class="panel">
-        <div class="metric-label">Fraud findings</div>
-        <div class="metric-value" id="findingCount">—</div>
-        <div class="muted">Pipeline findings returned</div>
+      <div class="metric-card">
+        <div class="metric-label">Fraud Findings</div>
+        <div class="metric-value" id="metricFindings">—</div>
+        <div class="metric-sub">Patterns detected</div>
       </div>
-      <div class="panel">
-        <div class="metric-label">Evidence score</div>
-        <div class="metric-value" id="evidenceScore">—</div>
-        <div class="muted">From evidence assessment</div>
+      <div class="metric-card">
+        <div class="metric-label">Risk Score</div>
+        <div class="metric-value" id="metricRisk">—</div>
+        <div class="metric-sub" id="metricRiskLevel">—</div>
       </div>
-      <div class="panel">
-        <div class="metric-label">Audit integrity</div>
-        <div class="metric-value" id="auditStatus">—</div>
-        <div class="muted" id="auditEvents">Awaiting result</div>
+      <div class="metric-card">
+        <div class="metric-label">Audit Integrity</div>
+        <div class="metric-value" id="metricAudit" style="font-size:20px">—</div>
+        <div class="metric-sub" id="metricAuditEvents">—</div>
       </div>
     </div>
 
-    <div class="grid two">
-      <section class="panel">
-        <h3>Data quality</h3>
-        <div id="quality"></div>
-      </section>
-      <section class="panel">
-        <h3>Investigation case</h3>
+    <!-- Executive summary -->
+    <div class="exec-summary" id="execSummaryCard" style="display:none">
+      <div class="eyebrow">Investigation Summary</div>
+      <p id="execSummaryText"></p>
+    </div>
+
+    <!-- Fraud findings (explanation cards) -->
+    <div class="section-panel">
+      <h3>Fraud Findings &amp; Explanations</h3>
+      <div id="findingsGrid" class="findings-grid">
+        <div style="color:var(--muted);font-size:13px">Run a demo or upload a CSV to see findings.</div>
+      </div>
+    </div>
+
+    <!-- Two-column: Quality + Case -->
+    <div class="two-col">
+      <div class="section-panel">
+        <h3>Data Quality</h3>
+        <div id="qualityDetails"></div>
+      </div>
+      <div class="section-panel">
+        <h3>Investigation Case</h3>
         <div id="caseDetails"></div>
-      </section>
-    </div>
-
-    <div class="grid two">
-      <section class="panel">
-        <h3>Fraud findings</h3>
-        <div id="findings" class="stack"></div>
-      </section>
-      <section class="panel">
-        <h3>Evidence assessment</h3>
-        <div id="evidence"></div>
-      </section>
-    </div>
-
-    <div class="grid two">
-      <section class="panel">
-        <h3>Agent reviews</h3>
-        <div id="reviews" class="stack"></div>
-      </section>
-      <section class="panel">
-        <h3>Run information</h3>
-        <div id="runInfo"></div>
-      </section>
-    </div>
-
-    <section class="panel">
-      <div class="actions" style="justify-content:space-between">
-        <h3 style="margin:0">Raw pipeline response</h3>
-        <button onclick="toggleRaw()">Show / hide JSON</button>
       </div>
-      <pre id="raw" hidden></pre>
-    </section>
+    </div>
+
+    <!-- Two-column: Evidence + Agent Reviews -->
+    <div class="two-col">
+      <div class="section-panel">
+        <h3>Evidence Assessment</h3>
+        <div id="evidenceDetails"></div>
+      </div>
+      <div class="section-panel">
+        <h3>Agent Reviews</h3>
+        <div id="reviewDetails"></div>
+      </div>
+    </div>
+
+    <!-- Raw JSON -->
+    <details class="adv-panel">
+      <summary>Raw Pipeline Response (JSON)</summary>
+      <div class="adv-body" style="padding-top:0">
+        <pre id="rawJson"></pre>
+      </div>
+    </details>
+
   </section>
 
-  <footer>
-    FraudShield AI · Local development dashboard ·
-    Synthetic demo results do not establish real-world fraud detection accuracy.
+  <!-- ── FOOTER ─────────────────────────────────────────── -->
+  <footer class="site-footer">
+    <span>FraudShield AI &nbsp;·&nbsp; Evidence-driven fraud detection &nbsp;·&nbsp; v2.0.0</span>
+    <span>Experimental scores do not constitute approved fraud decisions.</span>
   </footer>
-</div>
+
+</div><!-- /.shell -->
 
 <script>
+// ── Utilities ────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
+const esc = v => { const n = document.createElement('span'); n.textContent = String(v ?? '—'); return n.innerHTML; };
+const pretty = v => v == null ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v);
 
-function esc(value) {
-  const node = document.createElement("span");
-  node.textContent = String(value ?? "—");
-  return node.innerHTML;
-}
-
-function pretty(value) {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function entries(value) {
-  if (value && typeof value === "object") {
-    if (Array.isArray(value)) {
-      return value.map((item, i) => [String(i + 1), item]);
-    }
-    return Object.entries(value);
-  }
-  return value === undefined ? [] : [["Result", value]];
-}
-
-function renderDetails(value) {
-  const rows = entries(value);
-  if (!rows.length) {
-    return '<div class="muted">No information returned.</div>';
-  }
-
-  return rows.map(([key, val]) => `
-    <div class="detail">
-      <span>${esc(String(key).replaceAll("_", " "))}</span>
-      <strong>${esc(pretty(val))}</strong>
-    </div>
-  `).join("");
-}
-
-function renderItems(value) {
-  const rows = entries(value);
-  if (!rows.length) {
-    return '<div class="muted">No items returned.</div>';
-  }
-
-  return rows.map(([key, val]) => {
-    const title = typeof val === "object" && val !== null
-      ? (val.name ?? val.pattern ?? val.finding_type ?? val.type ?? key)
-      : key;
-
-    const detail = typeof val === "object" && val !== null
-      ? JSON.stringify(val, null, 2)
-      : String(val);
-
-    return `
-      <div class="item">
-        <div class="item-title">${esc(title)}</div>
-        <div class="item-detail">${esc(detail)}</div>
-      </div>
-    `;
-  }).join("");
-}
-
-function firstPresent(data, keys) {
-  for (const key of keys) {
-    if (data && data[key] !== undefined && data[key] !== null) {
-      return data[key];
-    }
-  }
+function pick(data, keys) {
+  for (const k of keys) if (data?.[k] != null) return data[k];
   return null;
 }
 
-function showError(message) {
-  $("error").textContent = message;
-  $("error").style.display = "block";
+// ── Render detail rows ───────────────────────────────────────
+function renderDetails(obj) {
+  if (!obj || typeof obj !== 'object') return `<div style="color:var(--muted);font-size:13px">${esc(pretty(obj))}</div>`;
+  const entries = Array.isArray(obj)
+    ? obj.map((v, i) => [String(i + 1), v])
+    : Object.entries(obj);
+  if (!entries.length) return '<div style="color:var(--muted);font-size:13px">No data returned.</div>';
+  return entries.map(([k, v]) => `
+    <div class="detail-row">
+      <span class="detail-key">${esc(String(k).replaceAll('_', ' '))}</span>
+      <strong class="detail-val">${esc(pretty(v))}</strong>
+    </div>`).join('');
 }
 
-function clearError() {
-  $("error").textContent = "";
-  $("error").style.display = "none";
+// ── Render explanation finding card ─────────────────────────
+function riskColor(level) {
+  return {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--green)'}[level] || 'var(--muted)';
 }
 
+function renderFindingCard(finding) {
+  const pattern = finding.pattern || 'UNKNOWN';
+  const expl = finding.explanation || {};
+  const headline = expl.headline || pattern.replaceAll('_', ' ');
+  const summary = expl.plain_summary || finding.evidence || '';
+  const context = expl.what_this_means || '';
+  const facts = expl.key_facts || [];
+  const contribution = expl.risk_contribution || '';
+
+  // Infer risk level from pattern weight for the card colour
+  const patternWeight = {ACCOUNT_TAKEOVER:35,VELOCITY_ATTACK:35,NEW_DEVICE_HIGH_VALUE:25,IMPOSSIBLE_TRAVEL:30};
+  const w = patternWeight[pattern] || 20;
+  const level = w >= 35 ? 'CRITICAL' : w >= 30 ? 'HIGH' : w >= 25 ? 'MEDIUM' : 'LOW';
+
+  const factsHtml = facts.length
+    ? `<ul class="key-facts">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`
+    : '';
+
+  const contextHtml = context
+    ? `<div class="finding-context">${esc(context)}</div>`
+    : '';
+
+  const contribHtml = contribution
+    ? `<div class="risk-contribution">⚡ ${esc(contribution)}</div>`
+    : '';
+
+  return `
+    <div class="finding-card">
+      <div class="finding-card-header">
+        <div>
+          <div class="finding-card-title">${esc(headline)}</div>
+          <div class="finding-card-summary">${esc(summary)}</div>
+        </div>
+        <span class="risk-badge risk-${level}">${level}</span>
+      </div>
+      <div class="finding-card-body">
+        ${contextHtml}
+        ${factsHtml}
+        ${contribHtml}
+      </div>
+    </div>`;
+}
+
+// ── Status bar ───────────────────────────────────────────────
 async function checkHealth() {
   try {
-    const response = await fetch("/api/health");
-    if (!response.ok) throw new Error("Service unavailable");
-    const data = await response.json();
-    $("health").textContent = data.status === "ok"
-      ? "Local service online"
-      : "Service status unknown";
-  } catch (_) {
-    $("health").textContent = "Service unavailable";
+    const res = await fetch('/api/health');
+    const data = await res.json();
+    const ok = res.ok && data.status === 'ok';
+    $('statusDot').className = 'dot ' + (ok ? 'online' : '');
+    $('statusText').textContent = ok ? 'API Online' : 'Service unavailable';
+  } catch {
+    $('statusDot').className = 'dot';
+    $('statusText').textContent = 'Service unavailable';
   }
 }
 
-async function runDemo() {
-  await request("/api/demo", null);
-}
+// ── Error display ────────────────────────────────────────────
+function showError(msg) { $('error').textContent = msg; $('error').style.display = 'block'; }
+function clearError()   { $('error').textContent = ''; $('error').style.display = 'none'; }
 
-async function runCsv() {
-  const file = $("csvFile").files[0];
-
-  if (!file) {
-    showError("Choose a CSV file first.");
-    return;
-  }
-
-  if (!file.name.toLowerCase().endsWith(".csv")) {
-    showError("Please select a .csv file.");
-    return;
-  }
-
-  const form = new FormData();
-  form.append("file", file);
-
-  await request("/api/analyze-csv", form);
-}
-
-async function request(url, body) {
-  clearError();
-
-  $("demoButton").disabled = true;
-  $("uploadButton").disabled = true;
-  $("demoButton").textContent = "Processing...";
-
-  try {
-    const options = body
-      ? { method: "POST", body }
-      : { method: "GET" };
-
-    const response = await fetch(url, options);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || "Request failed.");
-    }
-
-    render(data);
-  } catch (error) {
-    showError(error.message || "An unexpected error occurred.");
-  } finally {
-    $("demoButton").disabled = false;
-    $("uploadButton").disabled = false;
-    $("demoButton").textContent = "Run synthetic demo";
-  }
-}
-
+// ── Main render ──────────────────────────────────────────────
 function render(data) {
-  $("results").style.display = "block";
+  clearError();
+  $('results').style.display = 'block';
 
-  const findings = firstPresent(data, [
-    "pattern_findings", "findings", "fraud_findings"
-  ]);
+  const findings = pick(data, ['pattern_findings','findings','fraud_findings']) || [];
+  const evidence = pick(data, ['evidence_assessment','evidence']) || {};
+  const quality  = pick(data, ['data_quality','data_quality_result']);
+  const invCase  = pick(data, ['investigation_case','case']);
+  const audit    = data.audit_integrity || {};
+  const summary  = data.executive_summary || '';
 
-  const evidence = firstPresent(data, [
-    "evidence_assessment", "evidence"
-  ]);
+  // Metrics
+  $('metricTxn').textContent = pretty(data.transaction_count ?? '—');
+  $('metricFindings').textContent = Array.isArray(findings)
+    ? findings.length
+    : typeof findings === 'object' ? Object.keys(findings).length : '—';
 
-  const quality = firstPresent(data, [
-    "data_quality", "data_quality_result"
-  ]);
+  const riskScore = evidence.risk_score ?? evidence.score ?? null;
+  const riskLevel = evidence.risk_level ?? 'NONE';
+  $('metricRisk').textContent    = riskScore != null ? riskScore + '/100' : '—';
+  $('metricRisk').style.color    = riskColor(riskLevel);
+  $('metricRiskLevel').textContent = riskLevel;
 
-  const investigationCase = firstPresent(data, [
-    "investigation_case", "case"
-  ]);
+  const auditValid = audit.valid;
+  $('metricAudit').textContent = auditValid === true ? '✓ Verified' : auditValid === false ? '✗ Invalid' : '—';
+  $('metricAudit').style.color  = auditValid === true ? 'var(--green)' : auditValid === false ? 'var(--red)' : 'var(--muted)';
+  $('metricAuditEvents').textContent = `${audit.events ?? 0} audit events`;
 
-  const audit = data.audit_integrity || {};
+  // Executive summary
+  if (summary) {
+    $('execSummaryText').textContent = summary;
+    $('execSummaryCard').style.display = 'block';
+  } else {
+    $('execSummaryCard').style.display = 'none';
+  }
 
-  $("transactionCount").textContent =
-    pretty(data.transaction_count ?? "—");
+  // Findings cards
+  const findingsArr = Array.isArray(findings)
+    ? findings
+    : typeof findings === 'object' ? Object.values(findings) : [];
 
-  $("findingCount").textContent =
-    Array.isArray(findings) ? findings.length
-    : findings && typeof findings === "object"
-      ? Object.keys(findings).length
-      : "—";
+  if (findingsArr.length) {
+    $('findingsGrid').innerHTML = findingsArr.map(renderFindingCard).join('');
+  } else {
+    $('findingsGrid').innerHTML = '<div style="color:var(--green);font-size:13px">✓ No suspicious patterns detected in this batch.</div>';
+  }
 
-  $("evidenceScore").textContent = pretty(
-    firstPresent(evidence, ["score", "evidence_score", "risk_score"])
-  );
-
-  $("auditStatus").textContent =
-    audit.valid === true ? "Verified"
-    : audit.valid === false ? "Invalid"
-    : "Unknown";
-
-  $("auditStatus").style.color =
-    audit.valid === true ? "var(--green)"
-    : audit.valid === false ? "var(--red)"
-    : "var(--yellow)";
-
-  $("auditEvents").textContent =
-    `${audit.events ?? 0} audit events`;
-
-  $("quality").innerHTML = renderDetails(quality);
-  $("caseDetails").innerHTML = renderDetails(investigationCase);
-  $("findings").innerHTML = renderItems(findings);
-  $("evidence").innerHTML = renderDetails(evidence);
+  // Detail panels
+  $('qualityDetails').innerHTML  = renderDetails(quality);
+  $('caseDetails').innerHTML     = renderDetails(invCase);
+  $('evidenceDetails').innerHTML = renderDetails(evidence);
 
   const reviews = {
     data_review: data.review,
     pattern_review: data.pattern_review,
     analysis: data.analysis,
-    pattern_analysis: data.pattern_analysis
+    pattern_analysis: data.pattern_analysis,
   };
+  $('reviewDetails').innerHTML = renderDetails(
+    Object.fromEntries(Object.entries(reviews).filter(([,v]) => v != null))
+  );
 
-  $("reviews").innerHTML = renderItems(reviews);
+  // Raw JSON
+  $('rawJson').textContent = JSON.stringify(data, null, 2);
 
-  $("runInfo").innerHTML = renderDetails({
-    task_id: data.task_id ?? "FRAUDSHIELD-DASHBOARD",
-    demo_data: data.demo_notice === true,
-    audit_integrity: audit.valid,
-    audit_events: audit.events,
-    returned_fields: Object.keys(data)
-  });
-
-  $("raw").textContent = JSON.stringify(data, null, 2);
-  $("raw").hidden = false;
-
-  $("results").scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
+  $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ── Demo ─────────────────────────────────────────────────────
+async function runDemo() {
+  clearError();
+  const btn = $('demoBtn');
+  btn.disabled = true; btn.textContent = 'Running pipeline…';
+  try {
+    const res = await fetch('/api/demo');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Demo failed.');
+    render(data);
+  } catch (e) {
+    showError(e.message || 'Demo failed.');
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Run Synthetic Demo';
+  }
+}
 
+// ── Case CSV ─────────────────────────────────────────────────
+async function runCsv() {
+  clearError();
+  const file = $('csvFile').files?.[0];
+  if (!file) { showError('Choose a CSV file first.'); return; }
+  if (!file.name.toLowerCase().endsWith('.csv')) { showError('Please select a .csv file.'); return; }
+  const btn = $('uploadButton');
+  btn.disabled = true; btn.textContent = 'Analyzing…';
+  try {
+    const form = new FormData(); form.append('file', file);
+    const res = await fetch('/api/analyze-csv', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Analysis failed.');
+    render(data);
+  } catch (e) {
+    showError(e.message || 'Analysis failed.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analyze Case CSV';
+  }
+}
+
+// ── IEEE single score ─────────────────────────────────────────
 async function runIeeeScore(event) {
   event.preventDefault();
-
-  const errorBox = $("ieeeError");
-  const resultBox = $("ieeeScoreResult");
-  const button = $("ieeeScoreButton");
-
-  errorBox.textContent = "";
-  errorBox.style.display = "none";
-  resultBox.style.display = "none";
-
-  const amount = Number($("ieeeAmount").value);
-  const identityValue = $("ieeeIdentityAvailable").value;
-
-  if (!Number.isFinite(amount) || amount < 0) {
-    errorBox.textContent = "Enter a valid, non-negative transaction amount.";
-    errorBox.style.display = "block";
-    return;
-  }
-
-  if (identityValue !== "0" && identityValue !== "1") {
-    errorBox.textContent = "Choose whether identity data is available.";
-    errorBox.style.display = "block";
-    return;
-  }
-
-  const transaction = {
-    TransactionAmt: amount,
-    identity_available: Number(identityValue)
-  };
-
-  const optionalFields = {
-    TransactionID: $("ieeeTransactionId").value.trim(),
-    card1: $("ieeeCard1").value.trim(),
-    card2: $("ieeeCard2").value.trim(),
-    ProductCD: $("ieeeProductCD").value.trim(),
-    card4: $("ieeeCard4").value.trim(),
-    card6: $("ieeeCard6").value.trim()
-  };
-
-  for (const [key, value] of Object.entries(optionalFields)) {
-    if (value !== "") transaction[key] = value;
-  }
-
-  button.disabled = true;
-  button.textContent = "Scoring...";
-
+  const errBox = $('ieeeError'); const resultBox = $('ieeeScoreResult'); const btn = $('ieeeScoreButton');
+  errBox.style.display = 'none'; resultBox.style.display = 'none';
+  const amount = Number($('ieeeAmount').value);
+  const identityValue = $('ieeeIdentityAvailable').value;
+  if (!Number.isFinite(amount) || amount < 0) { errBox.textContent = 'Enter a valid non-negative amount.'; errBox.style.display = 'block'; return; }
+  if (identityValue !== '0' && identityValue !== '1') { errBox.textContent = 'Choose identity data availability.'; errBox.style.display = 'block'; return; }
+  const tx = { TransactionAmt: amount, identity_available: Number(identityValue) };
+  const opts = { TransactionID: $('ieeeTransactionId').value.trim(), card1: $('ieeeCard1').value.trim(), card4: $('ieeeCard4').value.trim(), ProductCD: $('ieeeProductCD').value.trim() };
+  for (const [k, v] of Object.entries(opts)) if (v) tx[k] = v;
+  btn.disabled = true; btn.textContent = 'Scoring…';
   try {
-    const response = await fetch("/api/ieee-score", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({transactions: [transaction]})
-    });
+    const res = await fetch('/api/ieee-score', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({transactions:[tx]}) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Scoring failed.');
+    const r = data.results?.[0];
+    if (!r) throw new Error('No score result returned.');
+    $('ieeeModelStatus').textContent = data.status || 'EXPERIMENTAL_NOT_APPROVED';
+    $('ieeeScoreValue').textContent  = String(r.experimental_model_score ?? 'Unavailable');
+    $('ieeeScoreTransactionId').textContent = String(r.TransactionID ?? 'Not provided');
+    $('ieeeScoreSemantics').textContent = data.score_semantics || '';
+    $('ieeeScoreWarning').textContent  = data.warning || '';
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || "Scoring request failed.");
+    const drivers = r.shap_explanation?.top_n_drivers || [];
+    if (drivers.length) {
+      $('ieeeShapDriversList').innerHTML = drivers.map(d => {
+        const isRisk = d.direction === 'increases_risk';
+        const color = isRisk ? 'var(--red)' : 'var(--green)';
+        const sign = isRisk ? '+' : '−';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surface);border-radius:var(--radius-sm);font-size:12px">
+          <span>${esc(d.plain_description)}</span>
+          <span style="font-weight:700;color:${color}">${sign}${Math.abs(d.shap_value).toFixed(4)}</span>
+        </div>`;
+      }).join('');
+      $('ieeeShapDrivers').style.display = 'block';
+    } else {
+      $('ieeeShapDrivers').style.display = 'none';
     }
 
-    const result = data.results?.[0];
-    if (!result) throw new Error("The API returned no score result.");
-
-    $("ieeeModelStatus").textContent =
-      data.status || "EXPERIMENTAL_NOT_APPROVED";
-    $("ieeeScoreValue").textContent =
-      String(result.experimental_model_score ?? "Unavailable");
-    $("ieeeScoreTransactionId").textContent =
-      String(result.TransactionID ?? "Not provided");
-    $("ieeeScoreSemantics").textContent =
-      data.score_semantics || result.score_interpretation ||
-      "Uncalibrated model score; not a calibrated fraud probability.";
-    $("ieeeScoreWarning").textContent =
-      data.warning || "This result does not constitute an approved fraud decision.";
-
-    resultBox.style.display = "block";
-  } catch (error) {
-    errorBox.textContent = error.message || "Scoring request failed.";
-    errorBox.style.display = "block";
+    resultBox.style.display = 'block';
+  } catch (e) {
+    errBox.textContent = e.message || 'Scoring failed.'; errBox.style.display = 'block';
   } finally {
-    button.disabled = false;
-    button.textContent = "Score transaction";
+    btn.disabled = false; btn.textContent = 'Score Transaction';
   }
 }
 
-
+// ── IEEE batch CSV ────────────────────────────────────────────
 let ieeeCsvResultsData = null;
 
+function scoreColor(score) {
+  if (score >= 0.7) return 'var(--red)';
+  if (score >= 0.4) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
 async function runIeeeCsv() {
-  const fileInput = $("ieeeCsvFile");
-  const status = $("ieeeCsvStatus");
-  const button = $("ieeeCsvButton");
-  const file = fileInput.files?.[0];
-
-  status.textContent = "";
-  $("ieeeCsvResults").style.display = "none";
-  $("ieeeCsvDownload").disabled = true;
+  const file  = $('ieeeCsvFile').files?.[0];
+  const status = $('batchStatus');
+  const btn   = $('batchBtn');
+  status.textContent = '';
+  $('batchResults').style.display = 'none';
+  $('batchDownloadBtn').disabled = true;
   ieeeCsvResultsData = null;
-
-  if (!file) {
-    status.textContent = "Choose a CSV file first.";
-    return;
-  }
-
-  if (!file.name.toLowerCase().endsWith(".csv")) {
-    status.textContent = "Please select a .csv file.";
-    return;
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    status.textContent = "The CSV file must be no larger than 5 MB.";
-    return;
-  }
-
-  const form = new FormData();
-  form.append("file", file);
-  button.disabled = true;
-  button.textContent = "Scoring CSV...";
-
+  if (!file) { status.textContent = 'Choose a CSV file first.'; return; }
+  if (!file.name.toLowerCase().endsWith('.csv')) { status.textContent = 'Please select a .csv file.'; return; }
+  if (file.size > 5 * 1024 * 1024) { status.textContent = 'File must be no larger than 5 MB.'; return; }
+  const form = new FormData(); form.append('file', file);
+  btn.disabled = true; btn.textContent = 'Scoring…';
   try {
-    const response = await fetch("/api/ieee-score-csv", {
-      method: "POST",
-      body: form
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.detail || "CSV scoring failed.");
-    }
-
-    if (!Array.isArray(data.results)) {
-      throw new Error("The API returned an invalid results list.");
-    }
-
+    const res  = await fetch('/api/ieee-score-csv', { method:'POST', body:form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Scoring failed.');
+    if (!Array.isArray(data.results)) throw new Error('Invalid results.');
     ieeeCsvResultsData = data;
-    $("ieeeCsvCount").textContent = String(data.scored_count ?? data.results.length);
-    $("ieeeCsvModelStatus").textContent =
-      data.status || "EXPERIMENTAL_NOT_APPROVED";
-    $("ieeeCsvSemantics").textContent =
-      data.score_semantics || "Uncalibrated model score; not a calibrated fraud probability.";
-    $("ieeeCsvWarning").textContent =
-      data.warning || "Experimental scores are not approved fraud decisions.";
-
-    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    })[char]);
-
-    $("ieeeCsvTable").innerHTML = data.results.map(result => `
-      <tr>
-        <td style="padding:9px; border-top:1px solid var(--border)">
-          ${escapeHtml(result.row)}
-        </td>
-        <td style="padding:9px; border-top:1px solid var(--border)">
-          ${escapeHtml(result.TransactionID ?? "Not provided")}
-        </td>
-        <td style="padding:9px; border-top:1px solid var(--border)">
-          ${escapeHtml(result.experimental_model_score)}
-        </td>
-      </tr>
-    `).join("");
-
-    $("ieeeCsvResults").style.display = "block";
-    $("ieeeCsvDownload").disabled = data.results.length === 0;
-    status.textContent = "CSV scoring completed successfully.";
-  } catch (error) {
-    status.textContent = error.message || "CSV scoring failed.";
+    $('batchCount').textContent      = String(data.scored_count ?? data.results.length);
+    $('batchModelStatus').textContent = data.status || 'EXPERIMENTAL_NOT_APPROVED';
+    $('batchSemantics').textContent  = data.score_semantics || '';
+    $('batchWarning').textContent    = data.warning || '';
+    const E = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    $('batchTable').innerHTML = data.results.map(r => {
+      const s = r.experimental_model_score;
+      const col = scoreColor(s);
+      const sig = s >= 0.7 ? '🔴 High' : s >= 0.4 ? '🟡 Medium' : '🟢 Low';
+      return `<tr>
+        <td>${E(r.row)}</td>
+        <td>${E(r.TransactionID ?? '—')}</td>
+        <td style="font-weight:700;color:${col}">${E(s)}</td>
+        <td>${sig}</td>
+      </tr>`;
+    }).join('');
+    $('batchResults').style.display = 'block';
+    $('batchDownloadBtn').disabled  = data.results.length === 0;
+    status.textContent = `✓ Scored ${data.results.length} transaction${data.results.length !== 1 ? 's' : ''} successfully.`;
+  } catch (e) {
+    status.textContent = e.message || 'Scoring failed.';
   } finally {
-    button.disabled = false;
-    button.textContent = "Score CSV";
+    btn.disabled = false; btn.textContent = 'Score CSV';
   }
 }
 
 function downloadIeeeCsv() {
-  if (!ieeeCsvResultsData || !Array.isArray(ieeeCsvResultsData.results)) {
-    $("ieeeCsvStatus").textContent = "Score a CSV before downloading results.";
-    return;
-  }
-
-  const columns = [
-    "row",
-    "TransactionID",
-    "experimental_model_score",
-    "score_interpretation"
-  ];
-
-  const quote = value => {
-    const text = String(value ?? "");
-    return '"' + text.replace(/"/g, '""') + '"';
-  };
-
-  const lines = [
-    columns.map(quote).join(","),
-    ...ieeeCsvResultsData.results.map(result =>
-      columns.map(column => quote(result[column])).join(",")
-    )
-  ];
-
-  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
-    type: "text/csv;charset=utf-8;"
-  });
+  if (!ieeeCsvResultsData?.results) { $('batchStatus').textContent = 'Score a CSV before downloading.'; return; }
+  const cols = ['row','TransactionID','experimental_model_score','score_interpretation'];
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const lines = [cols.map(q).join(','), ...ieeeCsvResultsData.results.map(r => cols.map(c => q(r[c])).join(','))];
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "fraudshield-ieee-experimental-scores.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const a = document.createElement('a'); a.href = url; a.download = 'fraudshield-scores.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function toggleRaw() {
-  $("raw").hidden = !$("raw").hidden;
-}
-
+// ── Init ──────────────────────────────────────────────────────
 checkHealth();
 </script>
 </body>
-</html>
 """

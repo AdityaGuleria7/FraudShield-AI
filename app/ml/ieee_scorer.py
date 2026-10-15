@@ -86,7 +86,10 @@ def _is_missing(value: Any) -> bool:
     return False
 
 
-def score_transactions(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def score_transactions(
+    rows: list[dict[str, Any]],
+    explain: bool = False,
+) -> dict[str, Any]:
     """Score compatible feature rows without making fraud decisions."""
     if not isinstance(rows, list) or not rows:
         raise ValueError("Provide a non-empty list of transaction rows.")
@@ -170,6 +173,14 @@ def score_transactions(rows: list[dict[str, Any]]) -> dict[str, Any]:
     frame = pd.DataFrame(cleaned_rows, columns=features)
     scores = artifact["model"].predict_proba(frame)[:, 1]
 
+    shap_explanations = None
+    if explain:
+        try:
+            from app.explainability.shap_explainer import explain_batch_with_shap
+            shap_explanations = explain_batch_with_shap(artifact, cleaned_rows)
+        except Exception:
+            shap_explanations = None
+
     results = []
     for index, (row, score) in enumerate(zip(rows, scores), start=1):
         result = {
@@ -179,6 +190,8 @@ def score_transactions(rows: list[dict[str, Any]]) -> dict[str, Any]:
         }
         if "TransactionID" in row:
             result["TransactionID"] = row["TransactionID"]
+        if shap_explanations and index - 1 < len(shap_explanations):
+            result["shap_explanation"] = shap_explanations[index - 1]
         results.append(result)
 
     return {

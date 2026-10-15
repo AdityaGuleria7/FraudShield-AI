@@ -451,3 +451,96 @@ def test_orchestrator_stops_when_fraud_pattern_guardian_rejects(
     assert result["pattern_review"].status == "REJECT"
     assert result["pattern_review"].approved_for_next_stage is False
     assert result["investigation_case"] is None
+
+
+def test_orchestrator_returns_graph_analysis_separately(tmp_path):
+    transactions = [
+        {
+            "transaction_id": "TX-GRAPH-001",
+            "account_id": "ACC-GRAPH-001",
+            "device_id": "DEV-SHARED",
+            "ip_address": "10.0.0.1",
+            "country": "IN",
+            "merchant_category": "ONLINE_SERVICES",
+            "amount": 1200.0,
+            "timestamp": "2026-01-01T10:00:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX-GRAPH-002",
+            "account_id": "ACC-GRAPH-002",
+            "device_id": "DEV-SHARED",
+            "ip_address": "10.0.0.2",
+            "country": "IN",
+            "merchant_category": "ONLINE_SERVICES",
+            "amount": 1300.0,
+            "timestamp": "2026-01-01T10:01:00+00:00",
+            "is_fraud": False,
+        },
+        {
+            "transaction_id": "TX-GRAPH-003",
+            "account_id": "ACC-GRAPH-003",
+            "device_id": "DEV-OTHER",
+            "ip_address": "10.0.0.1",
+            "country": "IN",
+            "merchant_category": "ONLINE_SERVICES",
+            "amount": 1400.0,
+            "timestamp": "2026-01-01T10:02:00+00:00",
+            "is_fraud": False,
+        },
+    ]
+
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit_graph.jsonl")
+    )
+    result = orchestrator.run(
+        task_id="GRAPH-ORCH-001",
+        data={"transactions": transactions},
+    )
+
+    graph = result["graph_analysis"]
+    assert graph["graph_type"] == "account_shared_identifier_graph"
+    assert graph["account_count"] == 3
+    assert graph["cluster_count"] == 1
+    assert graph["review_candidate_count"] == 1
+
+    # Graph findings remain supplementary and do not alter risk assessment.
+    assert result["evidence_assessment"]["risk_score"] == 0
+    assert result["evidence_assessment"]["decision"] == "NO_SUSPICIOUS_ACTIVITY"
+    assert result["investigation_case"]["risk_score"] == 0
+    assert result["investigation_case"]["decision"] == "NO_SUSPICIOUS_ACTIVITY"
+
+
+def test_orchestrator_does_not_run_graph_after_data_quality_rejection(
+    tmp_path, monkeypatch
+):
+    orchestrator = FraudShieldOrchestrator(
+        audit_path=str(tmp_path / "audit_graph_reject.jsonl")
+    )
+
+    def should_not_run(_transactions):
+        raise AssertionError("Graph analysis must not run after rejection.")
+
+    monkeypatch.setattr(orchestrator.graph_detector, "analyze", should_not_run)
+
+    result = orchestrator.run(
+        task_id="GRAPH-ORCH-REJECT-001",
+        data={
+            "transactions": [
+                {
+                    "transaction_id": "TX-GRAPH-BAD",
+                    "account_id": "ACC-GRAPH-BAD",
+                    "device_id": "DEV-BAD",
+                    "ip_address": "10.10.10.10",
+                    "country": "XX",
+                    "merchant_category": "ELECTRONICS",
+                    "amount": 1000.0,
+                    "timestamp": "2026-01-01T10:00:00+00:00",
+                    "is_fraud": False,
+                }
+            ]
+        },
+    )
+
+    assert result["data_quality"]["status"] == "REJECT"
+    assert result["graph_analysis"] is None

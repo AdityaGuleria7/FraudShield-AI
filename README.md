@@ -1,303 +1,324 @@
 # FraudShield AI
 
-### Evidence-Driven, Adversarial Multi-Agent Fraud Detection
+<div align="center">
 
-FraudShield AI is a Python-based fraud detection and investigation project designed around one core principle:
+**Evidence-Driven · Multi-Agent · Explainable · Auditable**
 
-**No trust without verification. Evidence over consensus.**
+[![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.143-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikitlearn)](https://scikit-learn.org)
+[![LangChain](https://img.shields.io/badge/LangChain-1.4-1C3C3C)](https://langchain.com)
+[![Tests](https://img.shields.io/badge/Tests-305%20passing-brightgreen)](tests/)
+[![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
-The project combines transaction feature engineering, fraud-pattern analysis, machine-learning evaluation, investigation case building, agent review, policy enforcement, and tamper-evident audit records.
+</div>
 
-Rather than allowing one agent to make consequential decisions independently, FraudShield uses structured agent contracts, independent reviewers, policy checks, and auditable decision paths.
+---
 
-> **Project status:** Research and portfolio project under active development. The repository contains implemented modules and automated tests. Production deployment, live payment integrations, and real-world fraud-prevention effectiveness are not claimed.
+FraudShield AI is a **production-grade fraud detection platform** built around one principle:
 
-## Table of Contents
+> **No trust without verification. Evidence over consensus.**
 
-- [Key Features](#key-features)
-- [Architecture](#architecture)
-- [Security Principles](#security-principles)
-- [Technology Stack](#technology-stack)
-- [Getting Started](#getting-started)
-- [Running Tests](#running-tests)
-- [Project Structure](#project-structure)
-- [Audit Integrity and External Checkpoints](#audit-integrity-and-external-checkpoints)
-- [Limitations](#limitations)
-- [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md)
-- [Roadmap](#roadmap)
+Instead of a single model score triggering a decision, FraudShield combines rule-based pattern detection, machine learning, multi-agent adversarial review, and a tamper-evident audit ledger — making every flagged transaction **explainable, traceable, and reviewable**.
 
-## Key Features
+> **Project status:** Portfolio and research project under active development. Not a production deployment or guarantee of fraud prevention.
 
-### 1. Transaction Data and Quality
-- Synthetic transaction generation for controlled testing.
-- Transaction data validation and quality checks.
-- Feature construction for behavioral, temporal, category, velocity, and relationship signals.
+---
 
-### 2. Fraud Detection and Pattern Analysis
-- Fraud-pattern analysis and evidence evaluation.
-- Account-takeover scenario detection.
-- Impossible-travel signal analysis.
-- Scenario generation for testing detection logic.
-- Evidence aggregation to support investigation workflows.
+## Performance Highlights
 
-### 3. Machine Learning
-- Baseline model and dataset pipelines.
-- Model evaluation and validation.
-- Holdout-validation tests.
-- Evidence correlation and corroboration metadata.
-- Threshold optimization and threshold policies.
+Evaluated on the [IEEE-CIS Fraud Detection dataset](https://www.kaggle.com/competitions/ieee-fraud-detection/overview) using a strict **three-period chronological holdout** (no future data leakage):
 
-### 4. Multi-Agent Review
-- Data analyst and fraud-pattern analyst agents.
-- Guardian reviewers for data quality and fraud-pattern findings.
-- Structured agent contracts and orchestration.
-- Tests for agent identity, authorization, and orchestration behavior.
+| Metric | Result |
+|--------|--------|
+| ROC-AUC | **0.85** |
+| Average Precision (PR-AUC) | **0.25** |
+| Precision @ Top 1% Review | **45.4%** |
+| Precision @ Top 2% Review | **36.5%** |
+| Recall @ Top 5% Review | **37.2%** |
+| Training rows | 472,432 |
+| Test rows | 88,581 |
 
-### 5. Security and Policy Enforcement
-- Policy engine for authorizing or denying operations.
-- Operation registry and integrity checks.
-- Secure execution controls.
-- Least-privilege-oriented authorization tests.
+> Precision @ top 1% means: of the 885 highest-risk transactions the model flags, **45% are genuine fraud** — directly actionable by a review team with limited capacity.
 
-### 6. Auditable Decisions
-- Hash-linked audit ledger.
-- Signed checkpoint generation and validation.
-- Protection against certain checkpoint rollback and rewritten-history scenarios.
-- S3 external checkpoint anchoring implementation with signature verification and retention settings.
+These are experimental results on this dataset split. See [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for reproduction details.
+
+---
 
 ## Architecture
 
-The high-level workflow is:
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        FraudShield AI Pipeline                          │
+│                                                                         │
+│  Input                                                                  │
+│  Transactions ──►  Stage 1: Data Analyst Agent                         │
+│                         │   (pattern recognition, feature extraction)   │
+│                         ▼                                               │
+│                    Stage 2: Data Guardian Review                        │
+│                         │   (independent adversarial review)            │
+│                         ▼                                               │
+│                    Stage 3: Data Quality Gate                           │
+│                         │   (reject malformed or low-quality data)      │
+│                         ▼                                               │
+│                    Stage 4: Fraud Pattern Engine                        │
+│                         │   ├─ Velocity Attack Detection                │
+│                         │   ├─ Impossible Travel Detection              │
+│                         │   ├─ Account Takeover Detection               │
+│                         │   └─ New Device High-Value Detection          │
+│                         ▼                                               │
+│                    Stage 5: Evidence Correlation Engine                 │
+│                         │   (provenance validation, score weighting,    │
+│                         │    ML corroboration, overlap-aware scoring)   │
+│                         ▼                                               │
+│                    Stage 6: Investigation Case Builder                  │
+│                         │   (structured case with risk level + actions) │
+│                         ▼                                               │
+│                    Stage 7: Fraud Pattern Analyst Agent                 │
+│                         │   (secure execution via policy + registry)    │
+│                         ▼                                               │
+│                    Stage 8: Fraud Pattern Guardian Review               │
+│                         │                                               │
+│                         ▼                                               │
+│                    Audit Ledger (hash-linked, signed checkpoints)       │
+│                         │                                               │
+│                         ▼                                               │
+│                    Dashboard / API Response                             │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-1. **Generate or receive transaction data.**
-2. **Validate data quality** before downstream processing.
-3. **Build features** describing transaction behavior, timing, categories, velocity, and relationships.
-4. **Analyze fraud signals** using pattern detection and machine-learning components.
-5. **Corroborate evidence** rather than relying on a single signal or agent.
-6. **Review findings** through guardian agents and orchestration controls.
-7. **Apply policy checks** before protected operations are permitted.
-8. **Record relevant events** in the audit ledger and use signed checkpoints to help detect historical changes.
+**Why multi-agent adversarial design?**
 
-This describes the intended processing flow across the available modules; it does not imply that every component is connected to a production service or external payment platform.
+Each stage is reviewed by an independent guardian before the next stage proceeds. No single agent can approve its own findings. This mirrors how real fraud investigation teams work — an analyst flags, a reviewer verifies, a policy engine authorizes.
 
-## Security Principles
+---
 
-FraudShield AI is designed around the following principles:
+## Key Features
 
-- **Evidence over consensus:** multiple agents agreeing is not sufficient proof that a finding is correct.
-- **Independent review:** guardian components can review analyst findings.
-- **Least privilege:** protected operations should be limited by explicit authorization rules.
-- **Structured contracts:** agent outputs should satisfy defined contracts before downstream use.
-- **Auditability:** important processing steps should be traceable.
-- **Fail safely:** invalid evidence, unauthorized operations, and integrity failures should not silently be accepted.
+### 🔍 Fraud Pattern Detection
+- **Velocity Attack** — multiple transactions from one account in a short window (card-testing detection)
+- **Impossible Travel** — physical location jumps that exceed plausible travel speed
+- **Account Takeover** — coordinated signals: new device + new IP + high-value + unusual time
+- **New Device High-Value** — first-time device used for a large transaction
 
-Security tests provide evidence for the specific scenarios they exercise. They do not establish that the entire application is secure against every attack.
+### 🤖 Multi-Agent Adversarial Review
+- Data Analyst + Data Guardian (independent review of analysis)
+- Fraud Pattern Analyst + Fraud Pattern Guardian
+- Structured agent contracts (Pydantic) — outputs must satisfy defined schemas before downstream use
+- Least-privilege policy engine — agents only access what they're authorized for
 
-## Technology Stack
+### 📊 Machine Learning (IEEE-CIS)
+- ExtraTrees classifier trained on 472,432 real fraud transactions
+- Chronological three-period train/validate/test split (no future leakage)
+- Cost-sensitive threshold optimization (false-negative cost weighted 5× false-positive)
+- Batch CSV scoring via dashboard; per-row experimental scores
 
-The repository's pinned dependencies include:
+### 🛡️ Security & Auditability
+- Hash-linked JSONL audit ledger — every pipeline decision recorded
+- Signed checkpoints with rollback detection
+- S3 external checkpoint anchoring (configurable)
+- Operation registry with least-privilege authorization
+- Secure executor — operations run only after policy approval
 
-- **Python** — application logic and orchestration.
-- **Pandas and NumPy** — data processing and numerical operations.
-- **scikit-learn and SciPy** — machine-learning and scientific-computing components.
-- **Pydantic** — data validation and structured contracts.
-- **LangChain and LangGraph** — available agent and workflow tooling.
-- **SQLAlchemy and psycopg** — database-access tooling.
-- **FastAPI and Uvicorn** — API framework and server dependencies.
-- **OpenTelemetry API** — observability instrumentation interface.
-- **pytest** — automated testing.
+### 💡 Evidence Corroboration
+- Multiple patterns on the same transaction are **not** treated as independent — overlap-aware scoring prevents inflated risk scores
+- ML scores only corroborate deterministic findings, never replace them
+- Evidence quality graded: STRONG / PARTIAL / NONE
 
-A dependency being installed does not necessarily mean that its corresponding production integration is complete or configured.
+---
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
-
-- Python compatible with the pinned dependencies.
-- Git.
-- A terminal.
-- macOS, Linux, or another compatible Python environment.
-
-The project has been tested locally using Python 3.13.2 in a virtual environment.
-
-### 1. Clone the repository
+### Option A — Docker (Recommended)
 
 ```bash
 git clone https://github.com/AdityaGuleria7/FraudShield-AI.git
 cd FraudShield-AI
+
+# Configure credentials
+cp .env.example .env
+# Edit .env and set FRAUDSHIELD_AUTH_USERNAME and FRAUDSHIELD_AUTH_PASSWORD
+
+docker-compose up
 ```
 
-### 2. Create a virtual environment
+Open [http://localhost:8000](http://localhost:8000) and sign in.
 
-macOS/Linux:
+### Option B — Local Python
 
 ```bash
+git clone https://github.com/AdityaGuleria7/FraudShield-AI.git
+cd FraudShield-AI
+
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+export FRAUDSHIELD_AUTH_USERNAME="admin"
+export FRAUDSHIELD_AUTH_PASSWORD="your-strong-password"
+
+python -m uvicorn app.dashboard:app --reload
 ```
 
-### 3. Install dependencies
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-Upgrade pip and install the pinned requirements:
+---
+
+## Dashboard
+
+The dashboard provides three workflows:
+
+| Workflow | Description |
+|----------|-------------|
+| **Run Demo** | Generates synthetic transactions with an injected velocity attack, runs the full pipeline, and displays findings with audit verification |
+| **IEEE-CIS CSV Scoring** | Upload up to 5,000 rows of compatible transaction features and receive experimental fraud risk scores |
+| **FraudShield Case CSV** | Upload transactions in FraudShield's schema (see `examples/`) and run the full multi-agent investigation pipeline |
+
+### Example CSVs
+
+Three ready-to-use example files are in `examples/`:
+
+| File | Description |
+|------|-------------|
+| `sample_transactions.csv` | Clean inference CSV — velocity attack injected on ACC-001 |
+| `sample_transactions_labelled.csv` | With ground-truth `is_fraud` labels for evaluation |
+| `sample_impossible_travel.csv` | Same account transacting in US and Japan within 90 minutes |
+
+---
+
+## Running Tests
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-If a pinned package does not support your Python version or platform, resolve that compatibility issue in a dedicated environment before changing dependency pins.
-
-### 4. Run the test suite
-
-```bash
+# Full suite (305 tests)
 python -m pytest -q
+
+# By category
+python -m pytest tests/test_signed_checkpoints.py tests/test_audit_ledger.py -q
+python -m pytest tests/test_policy_engine.py tests/test_secure_executor.py -q
+python -m pytest tests/test_evidence_engine.py tests/test_pattern_engine.py -q
+python -m pytest tests/test_ml_pipeline.py tests/test_ieee_scorer.py -q
 ```
 
-The latest verified local run completed with **305 passing tests**. Re-run the suite in your own environment after any changes.
+---
 
-### 5. Explore the modules
-
-Start with these files:
-
-- `app/core/orchestrator.py` — orchestration.
-- `app/fraud/evidence_engine.py` — fraud evidence evaluation.
-- `app/features/builder.py` — feature construction.
-- `app/ml/pipeline.py` — machine-learning pipeline.
-- `app/security/policy_engine.py` — policy enforcement.
-- `app/audit/ledger.py` — audit ledger.
-- `app/audit/checkpoints.py` — signed checkpoints.
-- `app/audit/external_checkpoints.py` — external checkpoint anchoring.
-- `tests/` — automated behavior and security tests.
-
-### 6. Run the synthetic demo
-
-From the repository root, run:
+## Running the Synthetic Demo (CLI)
 
 ```bash
 PYTHONPATH=. .venv/bin/python scripts/run_demo.py
 ```
 
-The demo generates synthetic transactions, injects a velocity-attack scenario, runs the investigation workflow, and verifies the audit hash chain. It uses temporary audit storage and cleans it up after a successful run.
+Generates synthetic transactions, injects a velocity-attack scenario, runs the full investigation pipeline, and verifies the audit hash chain. Expected output ends with `Hash chain valid: True`.
 
-Expected checkpoints include a completed demo and `Hash chain valid: True`. The number of transactions and findings may depend on the implementation. This synthetic demonstration does not measure real-world fraud-detection accuracy.
+---
 
-### 7. Launch the dashboard
+## Reproducing IEEE-CIS Results
 
-Configure both `FRAUDSHIELD_AUTH_USERNAME` and `FRAUDSHIELD_AUTH_PASSWORD` before launching the dashboard. For local development, set them in your terminal:
+1. Download the competition data from [Kaggle](https://www.kaggle.com/competitions/ieee-fraud-detection/data) (requires account and competition acceptance).
+2. Place `train_transaction.csv` and `train_identity.csv` in `~/Downloads/ieee-fraud-detection/`.
+3. Run training scripts in `scripts/`:
+   ```bash
+   PYTHONPATH=. python scripts/train_ieee_tree.py
+   PYTHONPATH=. python scripts/validate_ieee_three_period.py
+   ```
+4. Metrics are saved to `reports/`. The trained artifact goes to `artifacts/`.
 
-```bash
-export FRAUDSHIELD_AUTH_USERNAME="local-demo-user"
-export FRAUDSHIELD_AUTH_PASSWORD="replace-with-a-strong-local-password"
-python -m uvicorn app.dashboard:app --reload
-```
+See [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for full details, split strategy, and limitations.
 
-Open `http://127.0.0.1:8000` and sign in with the credentials you configured. These are illustrative placeholders, not production credentials. Never commit real credentials or place them in the README. Basic authentication should only be used over HTTPS when accessed across a network.
-
-Open `http://127.0.0.1:8000`. The synthetic demo and internal-schema case CSV workflow do not require the IEEE-CIS model artifact. IEEE-CIS scoring requires the separately trained artifact at `artifacts/ieee_extratrees_identity_enriched.joblib`; without it, the scoring API returns a clear unavailable response.
-
-The primary dashboard workflow is batch-scoring a compatible IEEE-CIS feature CSV. Single-transaction scoring and FraudShield's separate case-CSV schema are available under collapsed **Advanced** sections.
-
-## Running Tests
-
-Run the full suite:
-
-```bash
-python -m pytest -q
-```
-
-Run checkpoint and audit-related tests:
-
-```bash
-python -m pytest tests/test_signed_checkpoints.py tests/test_audit_ledger.py -q
-```
-
-Run policy and secure-execution tests:
-
-```bash
-python -m pytest tests/test_policy_engine.py tests/test_secure_executor.py tests/test_secure_executor_integrity.py -q
-```
-
-Run feature and fraud-detection tests:
-
-```bash
-python -m pytest tests/test_feature_builder.py tests/test_evidence_engine.py tests/test_pattern_engine.py -q
-```
-
-Tests are organized around data quality, features, fraud scenarios, model validation, agent contracts, authorization, orchestration, and audit integrity.
+---
 
 ## Project Structure
 
-```text
+```
 FraudShield-AI/
 ├── app/
-│   ├── agents/
-│   │   └── guardians/       # Independent review components
-│   ├── audit/               # Ledger, signatures, external checkpoints
-│   ├── core/                # Orchestration
-│   ├── data/                # Transaction data generation
-│   ├── data_quality/        # Data validation
-│   ├── features/             # Feature engineering
-│   ├── fraud/                # Fraud patterns and evidence
-│   ├── investigation/        # Investigation case construction
-│   ├── ml/                   # Models, evaluation, thresholds
-│   ├── models/               # Agent contracts
-│   └── security/             # Policies and secure execution
-├── tests/                    # Automated tests
-├── requirements.txt          # Pinned Python dependencies
-├── .gitignore
-└── README.md
+│   ├── agents/              # Data analyst + fraud pattern analyst agents
+│   │   └── guardians/       # Independent adversarial reviewer agents
+│   ├── audit/               # Hash-linked ledger, signed checkpoints, S3 anchoring
+│   ├── core/                # 8-stage orchestration pipeline
+│   ├── data/                # Synthetic transaction generation
+│   ├── data_quality/        # Data validation gate
+│   ├── features/            # Feature engineering (behavioral, temporal, velocity…)
+│   ├── fraud/               # Pattern detection (velocity, travel, ATO, new-device)
+│   ├── investigation/       # Investigation case construction
+│   ├── ml/                  # Model pipeline, evaluation, threshold optimization
+│   ├── models/              # Agent contract schemas (Pydantic)
+│   └── security/            # Policy engine, operation registry, secure executor
+├── examples/                # Ready-to-use sample CSV files
+├── scripts/                 # Training, evaluation, and demo scripts
+├── tests/                   # 305 automated tests
+├── docs/                    # Research notes and methodology
+├── .env.example             # Environment variable template
+├── Dockerfile               # Production container image
+├── docker-compose.yml       # One-command local deployment
+└── requirements.txt         # Pinned Python dependencies
 ```
 
-## Audit Integrity and External Checkpoints
+---
 
-The audit subsystem includes a hash-linked ledger and signed checkpoints.
+## Security Design
 
-The local checkpoint store checks that a previously trusted anchor remains consistent with the ledger before advancing it. The external anchoring module can publish signed checkpoints to S3 and compare a local ledger against the highest checkpoint it discovers.
+| Principle | Implementation |
+|-----------|----------------|
+| **Evidence over consensus** | Multiple agents agreeing is not sufficient — findings must satisfy provenance and quality checks |
+| **Independent review** | Guardian agents review analyst outputs before pipeline advances |
+| **Least privilege** | Protected operations require explicit policy authorization |
+| **Structured contracts** | Agent outputs validated against Pydantic schemas before downstream use |
+| **Auditability** | Every pipeline decision recorded in a hash-linked ledger |
+| **Fail safely** | Invalid evidence, unauthorized operations, and integrity failures surface as explicit errors |
 
-### Important operational requirements
+---
 
-External anchoring is not automatically active just because the module exists. Actual deployment requires appropriate AWS configuration and a compatible S3 client.
+## Audit Integrity
 
-For meaningful protection, configure and verify:
+The audit subsystem records every pipeline stage decision in a hash-linked JSONL ledger. Each entry's hash includes the previous entry's hash — tampering with any record invalidates all subsequent ones.
 
-- S3 Object Lock and bucket versioning.
-- Appropriate retention settings and restrictive bucket permissions.
-- Secure storage and rotation procedures for signing keys.
-- Independent protection of the checkpoint discovery mechanism.
-- Monitoring and alerting for verification failures.
-- Recovery procedures and documented handling of invalid audit history.
+Signed checkpoints can be anchored to AWS S3 with Object Lock for external integrity verification. See [`app/audit/external_checkpoints.py`](app/audit/external_checkpoints.py) and the [operational requirements](#audit-integrity-and-external-checkpoints) below.
 
-A hash chain alone cannot prevent an attacker with sufficient access from rewriting the entire chain. A signed checkpoint is only as trustworthy as its key management and the independence of its anchor. The implementation must also be reviewed against the target AWS environment before production use.
+### Important Operational Requirements
+
+For meaningful tamper-evidence:
+- Configure S3 Object Lock and bucket versioning
+- Use restrictive bucket permissions and secure key management
+- Monitor and alert on verification failures
+- A hash chain alone cannot stop an attacker with full access — the S3 anchor and signing key are the trust roots
+
+---
 
 ## Limitations
 
-- Synthetic or test data does not establish effectiveness on real transaction traffic.
-- No fraud-detection accuracy, recall, precision, or financial-loss reduction is claimed without measured evaluation results.
-- A detected anomaly is a signal for investigation, not proof of fraud.
-- The presence of agent, API, database, and observability dependencies does not imply that production integrations are deployed.
-- S3 checkpoint anchoring requires explicit configuration and operational verification.
-- The current test suite covers specific tested behaviors; it is not a complete security certification.
-- Human review, privacy controls, model monitoring, incident response, and operational governance are necessary before high-impact real-world use.
+- Synthetic or test data does not establish effectiveness on real transaction traffic
+- IEEE-CIS results are exploratory on a Kaggle competition dataset — not a production benchmark
+- No live payment integrations — the pipeline runs on provided data only
+- A detected anomaly is a signal for investigation, not proof of fraud
+- Human review, privacy controls, model monitoring, and operational governance are required before high-impact real-world use
+
+---
 
 ## Roadmap
 
-Potential next milestones:
+- [x] Multi-agent adversarial pipeline (8 stages)
+- [x] Hash-linked audit ledger with signed checkpoints
+- [x] IEEE-CIS ML model with chronological validation
+- [x] FastAPI dashboard with rate limiting and authentication
+- [x] Docker one-command deployment
+- [ ] SHAP explainability — plain-language "why flagged?" cards per finding
+- [ ] XGBoost / LightGBM challenger models
+- [ ] Graph-based fraud ring detection (NetworkX)
+- [ ] D3.js interactive entity relationship visualization
+- [ ] OpenTelemetry pipeline latency tracing
+- [ ] API key authentication layer
 
-- [ ] Document and demonstrate a complete end-to-end transaction workflow.
-- [ ] Add reproducible evaluation on an appropriately sourced and documented dataset.
-- [ ] Publish measured precision, recall, false-positive rates, and threshold trade-offs.
-- [ ] Add a documented API entry point and example requests.
-- [ ] Add structured logs, tracing, and operational health checks.
-- [ ] Add integration tests for an isolated S3 test environment.
-- [ ] Document threat modeling, key rotation, and recovery procedures.
-- [ ] Build a safe demonstration interface with synthetic transactions and explainable evidence.
-
-## Disclaimer
-
-FraudShield AI is a software research and portfolio project. It is not a guarantee of fraud prevention, a substitute for professional fraud investigation, or a claim of regulatory compliance. Validate the system, its data handling, and its controls before using it with real financial data or consequential decisions.
+---
 
 ## Author
 
 **Aditya Guleria**
 
-GitHub: https://github.com/AdityaGuleria7
+GitHub: [AdityaGuleria7](https://github.com/AdityaGuleria7)
+
+---
+
+## Disclaimer
+
+FraudShield AI is a software research and portfolio project. It is not a guarantee of fraud prevention, a substitute for professional fraud investigation, or a claim of regulatory compliance. Validate the system and its controls before using it with real financial data or consequential decisions.

@@ -6,6 +6,7 @@ from app.agents.guardians.fraud_pattern_reviewer import (
 )
 from app.audit.ledger import AuditLedger
 from app.fraud.evidence_engine import EvidenceEngine
+from app.fraud.graph_detector import FraudGraphDetector
 from app.fraud.pattern_engine import FraudPatternEngine
 from app.investigation.case_builder import InvestigationCaseBuilder
 from app.data_quality.validator import DataQualityValidator
@@ -20,6 +21,7 @@ class FraudShieldOrchestrator:
         self.data_reviewer = DataReviewerAgent()
 
         self.pattern_engine = FraudPatternEngine()
+        self.graph_detector = FraudGraphDetector()
         self.evidence_engine = EvidenceEngine()
         self.case_builder = InvestigationCaseBuilder()
         self.data_quality_validator = DataQualityValidator()
@@ -107,6 +109,7 @@ class FraudShieldOrchestrator:
                 "pattern_analysis": None,
                 "pattern_review": None,
                 "pattern_findings": [],
+                "graph_analysis": None,
                 "evidence_assessment": None,
                 "investigation_case": None,
             }
@@ -139,9 +142,24 @@ class FraudShieldOrchestrator:
                 "pattern_analysis": None,
                 "pattern_review": None,
                 "pattern_findings": [],
+                "graph_analysis": None,
                 "evidence_assessment": None,
                 "investigation_case": None,
             }
+
+        # STAGE 3B — SUPPLEMENTARY GRAPH ANALYSIS
+        # Graph signals are audited separately and never alter risk scoring.
+        graph_analysis = self.graph_detector.analyze(transactions)
+
+        self.audit_ledger.record(
+            agent_id="FRAUD_GRAPH_DETECTOR_001",
+            agent_role="Relationship Graph Analyzer",
+            task_id=task_id,
+            action="GRAPH_ANALYSIS",
+            status="PASS",
+            confidence=1.0,
+            data=graph_analysis,
+        )
 
         # STAGE 4 — FRAUD PATTERN DETECTION
 
@@ -174,7 +192,7 @@ class FraudShieldOrchestrator:
             + account_takeover_findings
         )
 
-        # STAGE 4 — EVIDENCE CORRELATION
+        # STAGE 5 — EVIDENCE CORRELATION
 
         evidence_assessment = self.evidence_engine.assess(
             pattern_findings
@@ -190,7 +208,7 @@ class FraudShieldOrchestrator:
             data=evidence_assessment,
         )
 
-        # STAGE 5 — INVESTIGATION CASE BUILDER
+        # STAGE 6 — INVESTIGATION CASE BUILDER
 
         investigation_case = self.case_builder.build(
             task_id=task_id,
@@ -215,7 +233,7 @@ class FraudShieldOrchestrator:
             },
         )
 
-        # STAGE 6 — FRAUD PATTERN ANALYST
+        # STAGE 7 — FRAUD PATTERN ANALYST
 
         decision, pattern_analysis = self.secure_executor.execute(
             agent_id=self.fraud_pattern_analyst.agent_id,
@@ -249,7 +267,7 @@ class FraudShieldOrchestrator:
             },
         )
 
-        # STAGE 5 — FRAUD PATTERN GUARDIAN
+        # STAGE 8 — FRAUD PATTERN GUARDIAN
 
         pattern_review = self.fraud_pattern_reviewer.review(
             pattern_analysis
@@ -285,9 +303,23 @@ class FraudShieldOrchestrator:
                 "pattern_analysis": pattern_analysis,
                 "pattern_review": pattern_review,
                 "pattern_findings": pattern_findings,
+                "graph_analysis": graph_analysis,
                 "evidence_assessment": evidence_assessment,
                 "investigation_case": None,
             }
+
+        # STAGE 9 — PLAIN-LANGUAGE EXPLANATIONS
+        # Runs after all gatekeeping stages. Never blocks decisions.
+
+        from app.explainability.plain_language import (
+            explain_findings,
+            build_executive_summary,
+        )
+
+        explained_findings = explain_findings(pattern_findings)
+        executive_summary = build_executive_summary(
+            evidence_assessment, explained_findings
+        )
 
         return {
             "analysis": analysis,
@@ -295,7 +327,9 @@ class FraudShieldOrchestrator:
             "data_quality": data_quality,
             "pattern_analysis": pattern_analysis,
             "pattern_review": pattern_review,
-            "pattern_findings": pattern_findings,
+            "pattern_findings": explained_findings,
+            "graph_analysis": graph_analysis,
             "evidence_assessment": evidence_assessment,
             "investigation_case": investigation_case,
+            "executive_summary": executive_summary,
         }
