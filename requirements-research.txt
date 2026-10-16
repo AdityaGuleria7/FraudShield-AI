@@ -1,0 +1,4 @@
+# Optional challenger-model experiments
+-r requirements.txt
+lightgbm==4.7.0
+xgboost==3.4.1

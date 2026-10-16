@@ -8,6 +8,8 @@ import math
 import joblib
 import pandas as pd
 
+from app.ml.artifact_integrity import verify_artifact
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT = (
@@ -27,6 +29,8 @@ def load_artifact() -> dict[str, Any]:
             "Place the trained artifact in the artifacts directory."
         )
 
+    # Verify bytes before deserializing the trusted local artifact.
+    verify_artifact(DEFAULT_ARTIFACT)
     artifact = joblib.load(DEFAULT_ARTIFACT)
 
     required_metadata = {

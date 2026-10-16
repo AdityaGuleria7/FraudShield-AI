@@ -153,7 +153,7 @@ cd FraudShield-AI
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 export FRAUDSHIELD_AUTH_USERNAME="admin"
 export FRAUDSHIELD_AUTH_PASSWORD="your-strong-password"
@@ -190,7 +190,7 @@ Three ready-to-use example files are in `examples/`:
 ## Running Tests
 
 ```bash
-# Full suite (305 tests)
+# Full suite (329 tests at the time of this documentation update)
 python -m pytest -q
 
 # By category
@@ -251,7 +251,9 @@ FraudShield-AI/
 ├── .env.example             # Environment variable template
 ├── Dockerfile               # Production container image
 ├── docker-compose.yml       # One-command local deployment
-└── requirements.txt         # Pinned Python dependencies
+├── requirements.txt         # Runtime dependencies
+├── requirements-dev.txt     # Runtime + test dependencies
+└── requirements-research.txt # Optional challenger-model dependencies
 ```
 
 ---
