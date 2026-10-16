@@ -1,5 +1,10 @@
 from pathlib import Path
+import hashlib
+import importlib.metadata
 import json
+import os
+import subprocess
+import sys
 import time
 import warnings
 
@@ -165,6 +170,35 @@ def evaluate(name, y, scores, threshold):
     }
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def git_revision():
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def dependency_versions():
+    packages = ("numpy", "pandas", "scikit-learn", "xgboost", "lightgbm")
+    versions = {}
+    for package in packages:
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = None
+    return versions
+
+
 def main():
     # Fail before loading data or training if the report already exists.
     if OUTPUT_FILE.exists():
@@ -225,6 +259,18 @@ def main():
         )
 
     report = {
+        "evaluation_status": "exploratory_reused_test_period_not_independent_validation",
+        "test_period_is_untouched": False,
+        "dataset": {
+            "filename": DATA_FILE.name,
+            "sha256": sha256_file(DATA_FILE),
+            "rows_after_required_field_filter": int(len(df)),
+        },
+        "environment": {
+            "python": sys.version.split()[0],
+            "dependencies": dependency_versions(),
+        },
+        "source_revision": git_revision(),
         "experiment": "IEEE-CIS chronological four-model comparison",
         "features": FEATURES,
         "partition_rule": (
