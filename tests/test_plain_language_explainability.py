@@ -149,3 +149,28 @@ def test_build_executive_summary_critical():
     assert "requires immediate escalation" in summary
     assert "Velocity Attack" in summary
     assert "Account Takeover" in summary
+
+
+def test_velocity_explanation_uses_actual_base_weight_and_caveat():
+    explanation = explain_finding({
+        "pattern": "VELOCITY_ATTACK",
+        "account_id": "ACC-TEST",
+        "transaction_count": 3,
+        "window_minutes": 5,
+        "transaction_ids": ["T1", "T2", "T3"],
+    })
+    assert "+25 base risk points" in explanation["risk_contribution"]
+    assert "before correlation adjustments" in explanation["risk_contribution"]
+    assert "confirmed fraud finding" in explanation["risk_contribution"]
+
+
+def test_new_device_explanation_does_not_claim_validated_fraud():
+    explanation = explain_finding({
+        "pattern": "NEW_DEVICE_HIGH_VALUE",
+        "account_id": "ACC-TEST",
+        "device_id": "DEV-TEST",
+        "amount": 60000.0,
+        "threshold": 50000.0,
+    })
+    assert "validated fraud signal" not in explanation["risk_contribution"]
+    assert "legitimate explanations" in explanation["risk_contribution"]

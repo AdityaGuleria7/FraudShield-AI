@@ -10,6 +10,7 @@ from app.fraud.graph_detector import FraudGraphDetector
 from app.fraud.pattern_engine import FraudPatternEngine
 from app.investigation.case_builder import InvestigationCaseBuilder
 from app.data_quality.validator import DataQualityValidator
+from app.models.result_normalizer import normalize_investigation_result
 from app.security.operation_registry import OperationRegistry
 from app.security.secure_executor import SecureExecutor
 
@@ -102,7 +103,7 @@ class FraudShieldOrchestrator:
             review.status != "PASS"
             or not review.approved_for_next_stage
         ):
-            return {
+            result = {
                 "analysis": analysis,
                 "review": review,
                 "data_quality": None,
@@ -113,6 +114,10 @@ class FraudShieldOrchestrator:
                 "evidence_assessment": None,
                 "investigation_case": None,
             }
+            result["normalized_result"] = normalize_investigation_result(
+                task_id, result
+            )
+            return result
 
         # STAGE 3 — DATA QUALITY GATE
 
@@ -135,7 +140,7 @@ class FraudShieldOrchestrator:
         )
 
         if data_quality["status"] == "REJECT":
-            return {
+            result = {
                 "analysis": analysis,
                 "review": review,
                 "data_quality": data_quality,
@@ -146,6 +151,10 @@ class FraudShieldOrchestrator:
                 "evidence_assessment": None,
                 "investigation_case": None,
             }
+            result["normalized_result"] = normalize_investigation_result(
+                task_id, result
+            )
+            return result
 
         # STAGE 3B — SUPPLEMENTARY GRAPH ANALYSIS
         # Graph signals are audited separately and never alter risk scoring.
@@ -297,9 +306,10 @@ class FraudShieldOrchestrator:
             pattern_review.status != "PASS"
             or not pattern_review.approved_for_next_stage
         ):
-            return {
+            result = {
                 "analysis": analysis,
                 "review": review,
+                "data_quality": data_quality,
                 "pattern_analysis": pattern_analysis,
                 "pattern_review": pattern_review,
                 "pattern_findings": pattern_findings,
@@ -307,6 +317,10 @@ class FraudShieldOrchestrator:
                 "evidence_assessment": evidence_assessment,
                 "investigation_case": None,
             }
+            result["normalized_result"] = normalize_investigation_result(
+                task_id, result
+            )
+            return result
 
         # STAGE 9 — PLAIN-LANGUAGE EXPLANATIONS
         # Runs after all gatekeeping stages. Never blocks decisions.
@@ -321,7 +335,7 @@ class FraudShieldOrchestrator:
             evidence_assessment, explained_findings
         )
 
-        return {
+        result = {
             "analysis": analysis,
             "review": review,
             "data_quality": data_quality,
@@ -333,3 +347,7 @@ class FraudShieldOrchestrator:
             "investigation_case": investigation_case,
             "executive_summary": executive_summary,
         }
+        result["normalized_result"] = normalize_investigation_result(
+            task_id, result
+        )
+        return result

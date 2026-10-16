@@ -557,7 +557,7 @@ async def ieee_score_csv(
                 detail=(
                     "CSV is missing required columns: "
                     + ", ".join(missing_columns)
-                    + ". identity_available must be 0 or 1 and is metadata only."
+                    + ". identity_available must be 0 or 1; it indicates whether identity data is available and is a model input, not proof of fraud."
                 ),
             )
 
@@ -996,7 +996,7 @@ pre {
     </div>
     <p style="color:var(--muted);font-size:13px;margin:0 0 16px">
       Upload up to 5,000 rows of compatible IEEE-CIS feature data.
-      Required columns: <code>TransactionAmt</code>, <code>identity_available</code> (0 or 1).
+      Required columns: <code>TransactionAmt</code>, <code>identity_available</code> (0 or 1; indicates identity-data availability and is used as a model input, not proof of fraud).
       Maximum file size: 5 MB.
     </p>
     <div class="upload-row">

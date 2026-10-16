@@ -33,7 +33,7 @@ def _explain_velocity_attack(finding: dict[str, Any]) -> dict[str, Any]:
             f"{count} transactions in {window} minutes",
             f"Affected transactions: {', '.join(str(i) for i in ids[:5])}{'…' if len(ids) > 5 else ''}",
         ],
-        "risk_contribution": "+35 risk points (high weight — velocity is a strong fraud signal)",
+        "risk_contribution": "+25 base risk points before correlation adjustments; a rule-based indicator, not a confirmed fraud finding",
     }
 
 
@@ -79,7 +79,7 @@ def _explain_impossible_travel(finding: dict[str, Any]) -> dict[str, Any]:
                 else []
             ),
         ],
-        "risk_contribution": "+30 risk points (impossible travel is a strong cross-border fraud indicator)",
+        "risk_contribution": "+30 base risk points before correlation adjustments; a rule-based location-anomaly indicator",
     }
 
 
@@ -129,7 +129,7 @@ def _explain_account_takeover(finding: dict[str, Any]) -> dict[str, Any]:
                 if amount else []
             ),
         ],
-        "risk_contribution": "+35 risk points (highest weighted pattern — account takeover is critical)",
+        "risk_contribution": "+35 base risk points before correlation adjustments; a rule-based account-takeover indicator",
     }
 
 
@@ -156,7 +156,7 @@ def _explain_new_device_high_value(finding: dict[str, Any]) -> dict[str, Any]:
             f"Amount: ${amount:,.2f}",
             f"High-value threshold: ${threshold:,.2f}",
         ],
-        "risk_contribution": "+25 risk points (new device on large transaction is a validated fraud signal)",
+        "risk_contribution": "+25 base risk points before correlation adjustments; a rule-based indicator that may have legitimate explanations",
     }
 
 
