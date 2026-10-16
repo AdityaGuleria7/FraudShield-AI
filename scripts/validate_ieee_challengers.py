@@ -188,6 +188,20 @@ def git_revision():
     return result.stdout.strip()
 
 
+def require_clean_working_tree():
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    if result.stdout.strip():
+        raise RuntimeError(
+            "Working tree is not clean. Commit or remove changes before "
+            "running the experiment so source_revision identifies the code."
+        )
+
+
 def dependency_versions():
     packages = ("numpy", "pandas", "scikit-learn", "xgboost", "lightgbm")
     versions = {}
@@ -206,6 +220,7 @@ def main():
             f"Report already exists: {OUTPUT_FILE}. "
             "Choose a new path with FRAUDSHIELD_CHALLENGER_OUTPUT."
         )
+    require_clean_working_tree()
     if not DATA_FILE.exists():
         raise FileNotFoundError(
             f"Dataset not found at {DATA_FILE}. Update DATA_FILE first."
