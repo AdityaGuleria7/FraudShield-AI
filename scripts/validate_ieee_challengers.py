@@ -26,7 +26,16 @@ DATA_FILE = (
     Path.home() / "Downloads" / "ieee-fraud-detection"
     / "train_transaction.csv"
 )
-OUTPUT_FILE = Path("reports/ieee_challenger_comparison.json")
+# Set FRAUDSHIELD_CHALLENGER_OUTPUT to a new path for each experiment.
+# Existing reports are never overwritten by default.
+import os
+
+OUTPUT_FILE = Path(
+    os.environ.get(
+        "FRAUDSHIELD_CHALLENGER_OUTPUT",
+        "reports/ieee_challenger_comparison.json",
+    )
+)
 
 FEATURES = [
     "TransactionAmt", "card1", "card2",
@@ -157,6 +166,12 @@ def evaluate(name, y, scores, threshold):
 
 
 def main():
+    # Fail before loading data or training if the report already exists.
+    if OUTPUT_FILE.exists():
+        raise FileExistsError(
+            f"Report already exists: {OUTPUT_FILE}. "
+            "Choose a new path with FRAUDSHIELD_CHALLENGER_OUTPUT."
+        )
     if not DATA_FILE.exists():
         raise FileNotFoundError(
             f"Dataset not found at {DATA_FILE}. Update DATA_FILE first."
@@ -264,8 +279,11 @@ def main():
         print(f"Flagged transactions: {result['flagged_count']:,}")
         print("Review capacity:", json.dumps(result["review_capacity"]))
 
-    OUTPUT_FILE.parent.mkdir(exist_ok=True)
-    OUTPUT_FILE.write_text(json.dumps(report, indent=2))
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation prevents accidental replacement of historical results.
+    with OUTPUT_FILE.open("x", encoding="utf-8") as stream:
+        json.dump(report, stream, indent=2)
+        stream.write("\n")
     print(f"\nSaved report: {OUTPUT_FILE}")
     print("Compare average precision and review-capacity results first.")
     print("These are experimental benchmark results, not production approval.")
