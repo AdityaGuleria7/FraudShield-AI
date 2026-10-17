@@ -1023,8 +1023,9 @@ pre {
             <tr>
               <th>Row</th>
               <th>Transaction ID</th>
-              <th>Risk Score</th>
-              <th>Signal</th>
+              <th>Experimental score</th>
+              <th>Input coverage</th>
+              <th>Decision status</th>
             </tr>
           </thead>
           <tbody id="batchTable"></tbody>
@@ -1073,6 +1074,7 @@ pre {
       <section id="ieeeScoreResult" style="display:none" aria-live="polite">
         <div class="detail-row"><span class="detail-key">Model status</span><strong class="detail-val" id="ieeeModelStatus">—</strong></div>
         <div class="detail-row"><span class="detail-key">Experimental score</span><strong class="detail-val" id="ieeeScoreValue">—</strong></div>
+        <div class="detail-row"><span class="detail-key">Input coverage</span><strong class="detail-val" id="ieeeInputCoverage">—</strong></div>
         <div class="detail-row"><span class="detail-key">Transaction ID</span><strong class="detail-val" id="ieeeScoreTransactionId">—</strong></div>
         <div id="ieeeShapDrivers" style="margin-top:14px;display:none">
           <div style="font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Top SHAP Risk Drivers</div>
@@ -1405,7 +1407,11 @@ async function runIeeeScore(event) {
     const r = data.results?.[0];
     if (!r) throw new Error('No score result returned.');
     $('ieeeModelStatus').textContent = data.status || 'EXPERIMENTAL_NOT_APPROVED';
-    $('ieeeScoreValue').textContent  = String(r.experimental_model_score ?? 'Unavailable');
+    $('ieeeScoreValue').textContent = String(r.experimental_model_score ?? 'Unavailable');
+    const coverage = r.input_coverage;
+    $('ieeeInputCoverage').textContent = coverage
+      ? `${coverage.available_features} of ${coverage.expected_features} model inputs available; ${coverage.missing_features} missing`
+      : 'Coverage unavailable';
     $('ieeeScoreTransactionId').textContent = String(r.TransactionID ?? 'Not provided');
     $('ieeeScoreSemantics').textContent = data.score_semantics || '';
     $('ieeeScoreWarning').textContent  = data.warning || '';
@@ -1437,12 +1443,6 @@ async function runIeeeScore(event) {
 // ── IEEE batch CSV ────────────────────────────────────────────
 let ieeeCsvResultsData = null;
 
-function scoreColor(score) {
-  if (score >= 0.7) return 'var(--red)';
-  if (score >= 0.4) return 'var(--yellow)';
-  return 'var(--green)';
-}
-
 async function runIeeeCsv() {
   const file  = $('ieeeCsvFile').files?.[0];
   const status = $('batchStatus');
@@ -1468,14 +1468,16 @@ async function runIeeeCsv() {
     $('batchWarning').textContent    = data.warning || '';
     const E = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
     $('batchTable').innerHTML = data.results.map(r => {
-      const s = r.experimental_model_score;
-      const col = scoreColor(s);
-      const sig = s >= 0.7 ? '🔴 High' : s >= 0.4 ? '🟡 Medium' : '🟢 Low';
+      const coverage = r.input_coverage;
+      const coverageText = coverage
+        ? `${coverage.available_features}/${coverage.expected_features} inputs`
+        : 'Unavailable';
       return `<tr>
         <td>${E(r.row)}</td>
         <td>${E(r.TransactionID ?? '—')}</td>
-        <td style="font-weight:700;color:${col}">${E(s)}</td>
-        <td>${sig}</td>
+        <td style="font-weight:700">${E(r.experimental_model_score)}</td>
+        <td>${E(coverageText)}</td>
+        <td>No decision made</td>
       </tr>`;
     }).join('');
     $('batchResults').style.display = 'block';

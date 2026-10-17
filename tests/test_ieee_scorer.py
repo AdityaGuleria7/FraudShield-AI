@@ -47,6 +47,25 @@ def test_valid_transaction_is_scored_without_a_decision(mock_artifact):
     assert result["decision_made"] is False
     assert result["results"][0]["TransactionID"] == 999001
     assert result["results"][0]["experimental_model_score"] == 0.4
+    assert result["results"][0]["input_coverage"] == {
+        "available_features": 3,
+        "expected_features": 3,
+        "missing_features": 0,
+    }
+
+
+def test_missing_optional_model_features_are_counted(mock_artifact):
+    transaction = valid_transaction()
+    del transaction["card1"]
+
+    result = ieee_scorer.score_transactions([transaction])
+    coverage = result["results"][0]["input_coverage"]
+
+    assert coverage == {
+        "available_features": 2,
+        "expected_features": 3,
+        "missing_features": 1,
+    }
 
 
 def test_missing_transaction_amount_is_rejected(mock_artifact):

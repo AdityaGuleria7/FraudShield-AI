@@ -107,6 +107,7 @@ def score_transactions(
     expected_features = set(features)
 
     cleaned_rows = []
+    input_coverages = []
 
     for index, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
@@ -140,14 +141,18 @@ def score_transactions(
             )
 
         clean = {}
+        available_features = 0
+        missing_features = 0
 
         for feature in features:
             value = row.get(feature)
 
             if _is_missing(value):
+                missing_features += 1
                 clean[feature] = float("nan") if feature in numeric_features else None
                 continue
 
+            available_features += 1
             if feature in numeric_features:
                 try:
                     numeric_value = float(value)
@@ -173,6 +178,11 @@ def score_transactions(
 
         clean["identity_available"] = int(availability)
         cleaned_rows.append(clean)
+        input_coverages.append({
+            "available_features": available_features,
+            "expected_features": len(features),
+            "missing_features": missing_features,
+        })
 
     frame = pd.DataFrame(cleaned_rows, columns=features)
     scores = artifact["model"].predict_proba(frame)[:, 1]
@@ -191,6 +201,7 @@ def score_transactions(
             "row": index,
             "experimental_model_score": round(float(score), 6),
             "score_interpretation": "Uncalibrated model score, not a calibrated fraud probability",
+            "input_coverage": input_coverages[index - 1],
         }
         if "TransactionID" in row:
             result["TransactionID"] = row["TransactionID"]
