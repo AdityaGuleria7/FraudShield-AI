@@ -1491,7 +1491,13 @@ async function runIeeeCsv() {
 function downloadIeeeCsv() {
   if (!ieeeCsvResultsData?.results) { $('batchStatus').textContent = 'Score a CSV before downloading.'; return; }
   const cols = ['row','TransactionID','experimental_model_score','score_interpretation'];
-  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const q = v => {
+    let value = String(v ?? '');
+    if (typeof v === 'string' && /^[\u0000-\u0020]*[=+\-@]/.test(value)) {
+      value = "'" + value;
+    }
+    return '"' + value.replace(/"/g, '""') + '"';
+  };
   const lines = [cols.map(q).join(','), ...ieeeCsvResultsData.results.map(r => cols.map(c => q(r[c])).join(','))];
   const blob = new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
