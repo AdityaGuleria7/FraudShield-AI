@@ -1500,8 +1500,8 @@ async function runIeeeCsv() {
     $('batchTable').innerHTML = data.results.map(r => {
       const coverage = r.input_coverage;
       const coverageText = coverage
-        ? `${coverage.available_features}/${coverage.expected_features} inputs`
-        : 'Unavailable';
+        ? `${coverage.available_features} of ${coverage.expected_features} model inputs available; ${coverage.missing_features} missing`
+        : 'Coverage unavailable';
       return `<tr>
         <td>${E(r.row)}</td>
         <td>${E(r.TransactionID ?? '—')}</td>

@@ -190,6 +190,8 @@ def test_dashboard_homepage(client):
     assert "<summary>Advanced: score a single transaction</summary>" in response.text
     assert "Missing model inputs may affect score interpretation" in response.text
     assert "More available inputs do not guarantee greater accuracy" in response.text
+    assert "of ${coverage.expected_features} model inputs available" in response.text
+    assert "${coverage.missing_features} missing" in response.text
 
 
 def test_ieee_score_endpoint_returns_experimental_score(
