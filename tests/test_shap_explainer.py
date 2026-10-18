@@ -45,11 +45,11 @@ def test_feature_label_fallback():
 def test_plain_driver_description():
     desc_pos = _plain_driver_description("TransactionAmt", 500.0, 0.25)
     assert "Transaction amount $500.00" in desc_pos
-    assert "increases fraud risk" in desc_pos
+    assert "pushes the model score higher" in desc_pos
 
     desc_neg = _plain_driver_description("identity_available", 1, -0.15)
     assert "Identity data available" in desc_neg
-    assert "reduces fraud risk" in desc_neg
+    assert "pushes the model score lower" in desc_neg
 
 
 def test_explain_with_shap_single_row(trained_tree_artifact):

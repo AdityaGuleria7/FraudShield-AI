@@ -116,8 +116,8 @@ def explain_with_shap(
         "top_negative_driver": negative_drivers[0] if negative_drivers else None,
         "driver_count": len(drivers),
         "explainability_note": (
-            "SHAP values show how each feature pushes the model score higher "
-            "(toward fraud) or lower (toward legitimate). They do not confirm fraud."
+            "SHAP values describe how each feature contributes to this model's "
+            "uncalibrated score. They do not confirm fraud or establish real-world risk."
         ),
     }
 
@@ -129,7 +129,7 @@ def _plain_driver_description(
 ) -> str:
     """Generate a one-line plain-language description of a SHAP driver."""
     label = _label(feature)
-    direction = "increases fraud risk" if shap_val > 0 else "reduces fraud risk"
+    direction = "pushes the model score higher" if shap_val > 0 else "pushes the model score lower"
     magnitude = abs(shap_val)
 
     if magnitude > 0.1:
