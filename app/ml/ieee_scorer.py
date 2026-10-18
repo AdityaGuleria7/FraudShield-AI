@@ -1,9 +1,10 @@
 """Experimental IEEE-CIS scoring service for FraudShield AI."""
 
+import logging
+import math
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-import math
 
 import joblib
 import pandas as pd
@@ -18,6 +19,8 @@ DEFAULT_ARTIFACT = (
 
 ALLOWED_EXTRA_FIELDS = {"TransactionID", "TransactionDT", "identity_available"}
 MAX_BATCH_SIZE = 100
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -193,6 +196,10 @@ def score_transactions(
             from app.explainability.shap_explainer import explain_batch_with_shap
             shap_explanations = explain_batch_with_shap(artifact, cleaned_rows)
         except Exception:
+            logger.warning(
+                "SHAP explanation generation failed; returning scores without explanations",
+                exc_info=True,
+            )
             shap_explanations = None
 
     results = []
@@ -205,8 +212,19 @@ def score_transactions(
         }
         if "TransactionID" in row:
             result["TransactionID"] = row["TransactionID"]
-        if shap_explanations and index - 1 < len(shap_explanations):
-            result["shap_explanation"] = shap_explanations[index - 1]
+        explanation = None
+        if explain:
+            if shap_explanations and index - 1 < len(shap_explanations):
+                explanation = shap_explanations[index - 1]
+
+            if explanation is not None:
+                result["shap_explanation"] = explanation
+                result["explanation_status"] = "available"
+            else:
+                result["explanation_status"] = "unavailable"
+        else:
+            result["explanation_status"] = "not_requested"
+
         results.append(result)
 
     return {

@@ -116,3 +116,66 @@ def test_negative_transaction_amount_is_rejected(mock_artifact):
 def test_pandas_nan_is_treated_as_missing():
     assert ieee_scorer._is_missing(float("nan")) is True
     assert ieee_scorer._is_missing(float("inf")) is False
+
+
+def test_successful_shap_explanation_is_marked_available(
+    mock_artifact, monkeypatch
+):
+    from app.explainability import shap_explainer
+
+    explanation = {
+        "explanation_type": "shap_tree_explainer",
+        "top_n_drivers": [],
+    }
+    monkeypatch.setattr(
+        shap_explainer,
+        "explain_batch_with_shap",
+        lambda artifact, rows: [explanation],
+    )
+
+    result = ieee_scorer.score_transactions(
+        [valid_transaction()], explain=True
+    )
+
+    assert result["results"][0]["explanation_status"] == "available"
+    assert result["results"][0]["shap_explanation"] == explanation
+    assert result["results"][0]["experimental_model_score"] == 0.4
+
+
+def test_shap_failure_preserves_score_and_marks_explanation_unavailable(
+    mock_artifact, monkeypatch, caplog
+):
+    import logging
+    from app.explainability import shap_explainer
+
+    def fail_explanation(artifact, rows):
+        raise RuntimeError("simulated SHAP failure")
+
+    monkeypatch.setattr(
+        shap_explainer,
+        "explain_batch_with_shap",
+        fail_explanation,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.ml.ieee_scorer"):
+        result = ieee_scorer.score_transactions(
+            [valid_transaction()], explain=True
+        )
+
+    scored = result["results"][0]
+    assert result["scored_count"] == 1
+    assert scored["experimental_model_score"] == 0.4
+    assert scored["explanation_status"] == "unavailable"
+    assert "shap_explanation" not in scored
+    assert "SHAP explanation generation failed" in caplog.text
+
+
+def test_explanation_status_is_not_requested_when_disabled(mock_artifact):
+    result = ieee_scorer.score_transactions(
+        [valid_transaction()], explain=False
+    )
+
+    scored = result["results"][0]
+    assert scored["experimental_model_score"] == 0.4
+    assert scored["explanation_status"] == "not_requested"
+    assert "shap_explanation" not in scored

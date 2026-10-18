@@ -1080,6 +1080,7 @@ pre {
           <div style="font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Top SHAP Risk Drivers</div>
           <div id="ieeeShapDriversList" style="display:grid;gap:6px"></div>
         </div>
+        <p id="ieeeExplanationStatus" class="status-msg" style="margin-top:8px;display:none"></p>
         <p id="ieeeScoreSemantics" class="status-msg" style="margin-top:8px"></p>
         <p id="ieeeScoreWarning" class="status-msg"></p>
       </section>
@@ -1430,6 +1431,25 @@ async function runIeeeScore(event) {
       $('ieeeShapDrivers').style.display = 'block';
     } else {
       $('ieeeShapDrivers').style.display = 'none';
+    }
+
+    const explanationStatus = r.explanation_status
+      || (drivers.length ? 'available' : 'unavailable');
+    const explanationStatusEl = $('ieeeExplanationStatus');
+    if (explanationStatus === 'unavailable') {
+      explanationStatusEl.textContent =
+        'The score was generated, but its explanation is unavailable. This experimental score is not proof of fraud.';
+      explanationStatusEl.style.display = 'block';
+    } else if (explanationStatus === 'not_requested') {
+      explanationStatusEl.textContent = 'An explanation was not requested for this result.';
+      explanationStatusEl.style.display = 'block';
+    } else if (explanationStatus === 'available' && !drivers.length) {
+      explanationStatusEl.textContent =
+        'An explanation was generated, but no ranked drivers were returned.';
+      explanationStatusEl.style.display = 'block';
+    } else {
+      explanationStatusEl.textContent = '';
+      explanationStatusEl.style.display = 'none';
     }
 
     resultBox.style.display = 'block';
