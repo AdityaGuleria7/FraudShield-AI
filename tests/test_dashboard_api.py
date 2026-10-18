@@ -30,6 +30,8 @@ def test_dashboard_explains_shap_values_as_model_score_contributions(client):
     assert "Top model-score contributions" in response.text
     assert "Positive values push the model score higher" in response.text
     assert "not fraud probabilities and do not prove fraud" in response.text
+    assert "const color = 'var(--muted)'" in response.text
+    assert "const isRisk = d.direction" not in response.text
     assert "Top SHAP Risk Drivers" not in response.text
 
 

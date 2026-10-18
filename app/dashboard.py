@@ -1421,12 +1421,12 @@ async function runIeeeScore(event) {
     const drivers = r.shap_explanation?.top_n_drivers || [];
     if (drivers.length) {
       $('ieeeShapDriversList').innerHTML = drivers.map(d => {
-        const isRisk = d.direction === 'increases_risk';
-        const color = isRisk ? 'var(--red)' : 'var(--green)';
-        const sign = isRisk ? '+' : '−';
+        const contribution = Number(d.shap_value);
+        const color = 'var(--muted)';
+        const sign = contribution > 0 ? '+' : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surface);border-radius:var(--radius-sm);font-size:12px">
           <span>${esc(d.plain_description)}</span>
-          <span style="font-weight:700;color:${color}">${sign}${Math.abs(d.shap_value).toFixed(4)}</span>
+          <span style="font-weight:700;color:${color}">${sign}${contribution.toFixed(4)}</span>
         </div>`;
       }).join('');
       $('ieeeShapDrivers').style.display = 'block';
