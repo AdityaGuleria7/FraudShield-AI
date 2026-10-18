@@ -1078,6 +1078,7 @@ pre {
       <section id="ieeeScoreResult" style="display:none" aria-live="polite">
         <div class="detail-row"><span class="detail-key">Model status</span><strong class="detail-val" id="ieeeModelStatus">—</strong></div>
         <div class="detail-row"><span class="detail-key">Experimental score</span><strong class="detail-val" id="ieeeScoreValue">—</strong></div>
+        <p class="status-msg">Treat this score as an investigation signal only. It does not confirm fraud and is not a calibrated fraud probability.</p>
         <div class="detail-row"><span class="detail-key">Input coverage</span><strong class="detail-val" id="ieeeInputCoverage">—</strong></div>
         <div class="detail-row"><span class="detail-key">Transaction ID</span><strong class="detail-val" id="ieeeScoreTransactionId">—</strong></div>
         <div id="ieeeShapDrivers" style="margin-top:14px;display:none">

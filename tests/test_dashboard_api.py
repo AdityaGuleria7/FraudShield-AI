@@ -37,6 +37,8 @@ def test_dashboard_explains_shap_values_as_model_score_contributions(client):
     assert "may affect the score" in response.text
     assert "does not supply" in response.text
     assert "not a calibrated fraud" in response.text
+    assert "investigation signal" in response.text
+    assert "does not confirm fraud" in response.text
 
 
 def test_dashboard_requires_authentication(monkeypatch):
