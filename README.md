@@ -27,21 +27,23 @@ Instead of a single model score triggering a decision, FraudShield combines rule
 
 ## Performance Highlights
 
-Evaluated on the [IEEE-CIS Fraud Detection dataset](https://www.kaggle.com/competitions/ieee-fraud-detection/overview) using a strict **three-period chronological holdout** (no future data leakage):
+The current identity/device-enriched Extra Trees model was evaluated experimentally on the [IEEE-CIS Fraud Detection dataset](https://www.kaggle.com/competitions/ieee-fraud-detection/overview) using a chronological split.
 
-| Metric | Result |
-|--------|--------|
-| ROC-AUC | **0.85** |
-| Average Precision (PR-AUC) | **0.25** |
-| Precision @ Top 1% Review | **45.4%** |
-| Precision @ Top 2% Review | **36.5%** |
-| Recall @ Top 5% Review | **37.2%** |
-| Training rows | 472,432 |
+**Important:** the evaluation period was examined during earlier experiments. These figures are exploratory, not an independent final benchmark, and do not establish real-world or production performance.
+
+| Metric | Exploratory result |
+|--------|-------------------:|
+| ROC-AUC | **0.7906** |
+| Average Precision | **0.1891** |
+| Precision @ Top 1% Review | **35.6%** |
+| Precision @ Top 2% Review | **34.2%** |
+| Precision @ Top 5% Review | **24.4%** |
+| Training rows | 413,378 |
 | Test rows | 88,581 |
 
-> Precision @ top 1% means: of the 885 highest-risk transactions the model flags, **45% are genuine fraud** — directly actionable by a review team with limited capacity.
+In this reported split, the top 1% review queue contains 885 transactions and includes 315 fraud cases. This describes the dataset experiment only; model scores are uncalibrated, and no production decision threshold is approved.
 
-These are experimental results on this dataset split. See [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for reproduction details.
+See [Model Card](docs/MODEL_CARD.md), [Evaluation Protocol](docs/EVALUATION.md), and [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for methodology and limitations.
 
 ---
 
