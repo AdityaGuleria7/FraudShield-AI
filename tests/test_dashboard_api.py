@@ -33,6 +33,10 @@ def test_dashboard_explains_shap_values_as_model_score_contributions(client):
     assert "const color = 'var(--muted)'" in response.text
     assert "const isRisk = d.direction" not in response.text
     assert "Top SHAP Risk Drivers" not in response.text
+    assert "sparse-input demonstration" in response.text
+    assert "may affect the score" in response.text
+    assert "does not supply" in response.text
+    assert "not a calibrated fraud" in response.text
 
 
 def test_dashboard_requires_authentication(monkeypatch):

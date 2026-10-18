@@ -1040,8 +1040,12 @@ pre {
     <summary>Advanced: score a single transaction</summary>
     <div class="adv-body">
       <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
-        Score one transaction using the experimental IEEE-CIS model.
-        Leave optional fields blank.
+        Manual scoring is a sparse-input demonstration. The enriched model expects
+        additional transaction and identity/device features that this form does not collect.
+        Missing optional inputs are handled by preprocessing and may affect the score.
+        Choosing “Available” only sets the identity_available flag; it does not supply
+        identity/device details. This experimental score is not a calibrated fraud
+        probability or a fraud decision.
       </p>
       <form id="ieeeScoreForm" onsubmit="runIeeeScore(event)" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <label>Transaction Amount *<br>
