@@ -1032,6 +1032,10 @@ pre {
         </table>
       </div>
       <p class="status-msg" id="batchWarning" style="margin-top:10px"></p>
+      <p id="batchCoverageHelp" style="color:var(--muted);font-size:13px;margin-top:8px">
+        Missing model inputs may affect score interpretation. More available inputs do not guarantee greater accuracy.
+        Treat input coverage as context for investigation, not as a fraud verdict.
+      </p>
     </div>
   </section>
 
