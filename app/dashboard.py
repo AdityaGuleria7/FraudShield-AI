@@ -804,11 +804,7 @@ button:disabled { opacity: .5; cursor: wait; }
   font-size: 11px; font-weight: 700; letter-spacing: .8px;
   text-transform: uppercase; padding: 4px 10px; border-radius: 20px;
 }
-.risk-CRITICAL { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,113,113,.25); }
-.risk-HIGH     { background: var(--orange-bg); color: var(--orange); border: 1px solid rgba(251,146,60,.25); }
-.risk-MEDIUM   { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(251,191,36,.25); }
-.risk-LOW      { background: var(--green-bg); color: var(--green); border: 1px solid rgba(61,214,140,.25); }
-.risk-NONE     { background: var(--panel2); color: var(--muted); border: 1px solid var(--border2); }
+.risk-PATTERN { background: var(--panel2); color: var(--muted); border: 1px solid var(--border2); }
 
 /* ── Executive summary card ──────────────────────────────── */
 .exec-summary {
@@ -1239,10 +1235,8 @@ function renderFindingCard(finding) {
   const facts = expl.key_facts || [];
   const contribution = expl.risk_contribution || '';
 
-  // Infer risk level from pattern weight for the card colour
-  const patternWeight = {ACCOUNT_TAKEOVER:35,VELOCITY_ATTACK:35,NEW_DEVICE_HIGH_VALUE:25,IMPOSSIBLE_TRAVEL:30};
-  const w = patternWeight[pattern] || 20;
-  const level = w >= 35 ? 'CRITICAL' : w >= 30 ? 'HIGH' : w >= 25 ? 'MEDIUM' : 'LOW';
+  // A detected pattern is an investigation signal, not a severity verdict.
+  const badgeLabel = 'PATTERN DETECTED';
 
   const factsHtml = facts.length
     ? `<ul class="key-facts">${facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`
@@ -1263,7 +1257,7 @@ function renderFindingCard(finding) {
           <div class="finding-card-title">${esc(headline)}</div>
           <div class="finding-card-summary">${esc(summary)}</div>
         </div>
-        <span class="risk-badge risk-${level}">${level}</span>
+        <span class="risk-badge risk-PATTERN">${badgeLabel}</span>
       </div>
       <div class="finding-card-body">
         ${contextHtml}
