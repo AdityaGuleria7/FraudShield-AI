@@ -38,3 +38,37 @@ assert.equal(formatShapContribution(-Infinity), null);
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_dashboard_shap_rendering_reports_when_no_valid_contributions_remain():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
+
+    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    match = re.search(
+        r"function hasValidShapContributions\(drivers\) \{.*?\n\}",
+        source,
+        flags=re.DOTALL,
+    )
+    assert match, "SHAP contribution availability helper was not found in dashboard source."
+
+    script = match.group(0) + """
+const assert = require('node:assert/strict');
+assert.equal(hasValidShapContributions([{shap_value: 0.2}]), true);
+assert.equal(hasValidShapContributions([{shap_value: 0}]), true);
+assert.equal(hasValidShapContributions([{shap_value: NaN}]), false);
+assert.equal(hasValidShapContributions([{shap_value: Infinity}]), false);
+assert.equal(hasValidShapContributions([{shap_value: 'invalid'}]), false);
+assert.equal(hasValidShapContributions([]), false);
+assert.equal(hasValidShapContributions(null), false);
+"""
+
+    result = subprocess.run(
+        [node, "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr

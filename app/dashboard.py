@@ -1398,6 +1398,12 @@ async function runCsv() {
   }
 }
 
+function hasValidShapContributions(drivers) {
+  return Array.isArray(drivers) && drivers.some(driver =>
+    Number.isFinite(Number(driver?.shap_value))
+  );
+}
+
 function formatShapContribution(value) {
   const contribution = Number(value);
   if (!Number.isFinite(contribution)) return null;
@@ -1434,7 +1440,8 @@ async function runIeeeScore(event) {
     $('ieeeScoreWarning').textContent  = data.warning || '';
 
     const drivers = r.shap_explanation?.top_n_drivers || [];
-    if (drivers.length) {
+    const hasValidContributions = hasValidShapContributions(drivers);
+    if (hasValidContributions) {
       $('ieeeShapDriversList').innerHTML = drivers.map(d => {
         const formattedContribution = formatShapContribution(d.shap_value);
         if (formattedContribution === null) return '';
@@ -1446,6 +1453,7 @@ async function runIeeeScore(event) {
       }).join('');
       $('ieeeShapDrivers').style.display = 'block';
     } else {
+      $('ieeeShapDriversList').textContent = '';
       $('ieeeShapDrivers').style.display = 'none';
     }
 
@@ -1459,9 +1467,9 @@ async function runIeeeScore(event) {
     } else if (explanationStatus === 'not_requested') {
       explanationStatusEl.textContent = 'An explanation was not requested for this result.';
       explanationStatusEl.style.display = 'block';
-    } else if (explanationStatus === 'available' && !drivers.length) {
+    } else if (explanationStatus === 'available' && !hasValidContributions) {
       explanationStatusEl.textContent =
-        'An explanation was generated, but no ranked drivers were returned.';
+        'An explanation was generated, but no valid contribution values are available to display.';
       explanationStatusEl.style.display = 'block';
     } else {
       explanationStatusEl.textContent = '';
