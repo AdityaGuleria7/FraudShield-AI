@@ -126,8 +126,10 @@ class InvestigationResult(BaseModel):
 
     @model_validator(mode="after")
     def validate_result_consistency(self):
-        if self.status == "COMPLETED" and self.risk is None:
-            raise ValueError("A completed result requires a risk assessment.")
+        if self.status in {"COMPLETED", "REQUIRES_REVIEW"} and self.risk is None:
+            raise ValueError(
+                f"A {self.status.lower()} result requires a risk assessment."
+            )
         if self.status in {"BLOCKED", "REJECTED", "ERROR"}:
             if self.review.approved_for_next_stage:
                 raise ValueError("Blocked, rejected, or errored results cannot be approved.")

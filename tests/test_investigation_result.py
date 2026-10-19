@@ -78,6 +78,15 @@ def test_completed_result_requires_risk_assessment():
         )
 
 
+def test_requires_review_result_requires_risk_assessment():
+    with pytest.raises(ValidationError, match="requires a risk assessment"):
+        InvestigationResult(
+            task_id="task-review-without-risk",
+            status="REQUIRES_REVIEW",
+            review=ReviewStatus(status="PENDING"),
+        )
+
+
 def test_result_separates_risk_model_and_review():
     result = InvestigationResult(
         task_id="task-2",
