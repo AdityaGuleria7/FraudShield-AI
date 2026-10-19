@@ -44,6 +44,10 @@ def normalize_investigation_result(
     findings = findings or []
     if any(not isinstance(finding, dict) for finding in findings):
         raise ValueError("Each pattern finding must be a dictionary.")
+    for finding in findings:
+        explanation = finding.get("explanation")
+        if explanation is not None and not isinstance(explanation, dict):
+            raise ValueError("Finding explanation must be a dictionary or None.")
 
 
     if data_quality and data_quality.get("status") == "REJECT":

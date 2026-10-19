@@ -73,6 +73,34 @@ def test_normalizer_rejects_non_dictionary_pattern_findings(invalid_finding):
         )
 
 
+@pytest.mark.parametrize(
+    "invalid_explanation",
+    ["unexpected text", 123, True, []],
+)
+def test_normalizer_rejects_non_dictionary_finding_explanation(
+    invalid_explanation,
+):
+    with pytest.raises(
+        ValueError,
+        match="Finding explanation must be a dictionary or None",
+    ):
+        normalize_investigation_result(
+            "task-invalid-explanation",
+            {
+                "evidence_assessment": {
+                    "risk_score": 55,
+                    "risk_level": "HIGH",
+                    "decision": "REQUIRES_FURTHER_INVESTIGATION",
+                    "evidence_quality": "STRONG",
+                    "evidence_count": 1,
+                },
+                "pattern_findings": [
+                    {"pattern": "VELOCITY_ATTACK", "explanation": invalid_explanation}
+                ],
+            },
+        )
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",
