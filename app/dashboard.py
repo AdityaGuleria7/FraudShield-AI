@@ -1398,6 +1398,12 @@ async function runCsv() {
   }
 }
 
+function formatShapContribution(value) {
+  const contribution = Number(value);
+  if (!Number.isFinite(contribution)) return null;
+  return `${contribution > 0 ? '+' : ''}${contribution.toFixed(4)}`;
+}
+
 // ── IEEE single score ─────────────────────────────────────────
 async function runIeeeScore(event) {
   event.preventDefault();
@@ -1430,12 +1436,12 @@ async function runIeeeScore(event) {
     const drivers = r.shap_explanation?.top_n_drivers || [];
     if (drivers.length) {
       $('ieeeShapDriversList').innerHTML = drivers.map(d => {
-        const contribution = Number(d.shap_value);
+        const formattedContribution = formatShapContribution(d.shap_value);
+        if (formattedContribution === null) return '';
         const color = 'var(--muted)';
-        const sign = contribution > 0 ? '+' : '';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surface);border-radius:var(--radius-sm);font-size:12px">
           <span>${esc(d.plain_description)}</span>
-          <span style="font-weight:700;color:${color}">${sign}${contribution.toFixed(4)}</span>
+          <span style="font-weight:700;color:${color}">${formattedContribution}</span>
         </div>`;
       }).join('');
       $('ieeeShapDrivers').style.display = 'block';
