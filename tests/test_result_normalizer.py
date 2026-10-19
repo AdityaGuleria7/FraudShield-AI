@@ -26,6 +26,23 @@ def test_normalizer_rejects_non_dictionary_evidence_assessment(invalid_evidence)
         )
 
 
+@pytest.mark.parametrize(
+    "invalid_data_quality",
+    [[], "invalid", 123, True],
+)
+def test_normalizer_rejects_non_dictionary_data_quality(
+    invalid_data_quality,
+):
+    with pytest.raises(
+        ValueError,
+        match="Data quality must be a dictionary or None",
+    ):
+        normalize_investigation_result(
+            "task-invalid-data-quality",
+            {"data_quality": invalid_data_quality},
+        )
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",

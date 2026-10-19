@@ -29,6 +29,9 @@ def normalize_investigation_result(
         raise ValueError("Investigation result must be a dictionary.")
 
     data_quality = result.get("data_quality")
+    if data_quality is not None and not isinstance(data_quality, dict):
+        raise ValueError("Data quality must be a dictionary or None.")
+
     pattern_review = result.get("pattern_review")
     evidence = result.get("evidence_assessment")
     if evidence is not None and not isinstance(evidence, dict):
