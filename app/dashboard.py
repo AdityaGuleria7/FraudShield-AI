@@ -1088,7 +1088,7 @@ pre {
         <div id="ieeeShapDrivers" style="margin-top:14px;display:none">
           <div style="font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Top model-score contributions</div>
           <div id="ieeeShapDriversList" style="display:grid;gap:6px"></div>
-          <p class="status-msg" style="margin-top:8px">Positive values push the model score higher; negative values push it lower. These contributions are not fraud probabilities and do not prove fraud.</p>
+          <p class="status-msg" style="margin-top:8px">Positive values push the model score higher; negative values push it lower. A zero value means this feature contributes no direction to the model score. These contributions are not fraud probabilities and do not prove fraud.</p>
         </div>
         <p id="ieeeExplanationStatus" class="status-msg" style="margin-top:8px;display:none"></p>
         <p id="ieeeScoreSemantics" class="status-msg" style="margin-top:8px"></p>
