@@ -1410,6 +1410,17 @@ function formatShapContribution(value) {
   return `${contribution > 0 ? '+' : ''}${contribution.toFixed(4)}`;
 }
 
+function getShapExplanationStatus(status, drivers) {
+  const hasValidContributions = hasValidShapContributions(drivers);
+  if (status === 'not_requested') return 'not_requested';
+  if (status === 'unavailable') return 'unavailable';
+  if (status === 'available') {
+    return hasValidContributions ? 'available' : 'no_valid_contributions';
+  }
+  if (!status) return hasValidContributions ? 'available' : 'unavailable';
+  return 'unavailable';
+}
+
 // ── IEEE single score ─────────────────────────────────────────
 async function runIeeeScore(event) {
   event.preventDefault();
@@ -1457,8 +1468,10 @@ async function runIeeeScore(event) {
       $('ieeeShapDrivers').style.display = 'none';
     }
 
-    const explanationStatus = r.explanation_status
-      || (hasValidContributions ? 'available' : 'unavailable');
+    const explanationStatus = getShapExplanationStatus(
+      r.explanation_status,
+      drivers
+    );
     const explanationStatusEl = $('ieeeExplanationStatus');
     if (explanationStatus === 'unavailable') {
       explanationStatusEl.textContent = hasValidContributions

@@ -80,30 +80,36 @@ def test_dashboard_explanation_status_uses_valid_contributions():
         pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
 
     source = Path("app/dashboard.py").read_text(encoding="utf-8")
-    match = re.search(
-        r"function hasValidShapContributions\(drivers\) \{.*?\n\}",
-        source,
-        flags=re.DOTALL,
-    )
-    assert match, "SHAP contribution availability helper was not found in dashboard source."
+    helpers = []
+    for name, pattern in (
+        (
+            "hasValidShapContributions",
+            r"function hasValidShapContributions\(drivers\) \{.*?\n\}",
+        ),
+        (
+            "getShapExplanationStatus",
+            r"function getShapExplanationStatus\(status, drivers\) \{.*?\n\}",
+        ),
+    ):
+        match = re.search(pattern, source, flags=re.DOTALL)
+        assert match, f"{name} helper was not found in dashboard source."
+        helpers.append(match.group(0))
 
-    script = match.group(0) + """
+    script = "\n".join(helpers) + """
 const assert = require('node:assert/strict');
 
-function explanationStatus(status, drivers) {
-  const hasValidContributions = hasValidShapContributions(drivers);
-  if (status === 'unavailable') return 'unavailable';
-  if (status === 'not_requested') return 'not_requested';
-  if (!hasValidContributions) return 'no_valid_contributions';
-  return 'available';
-}
-
-assert.equal(explanationStatus('available', [{shap_value: 0.25}]), 'available');
-assert.equal(explanationStatus('available', [{shap_value: NaN}]), 'no_valid_contributions');
-assert.equal(explanationStatus('available', [{shap_value: Infinity}]), 'no_valid_contributions');
-assert.equal(explanationStatus('available', []), 'no_valid_contributions');
-assert.equal(explanationStatus('unavailable', [{shap_value: 0.25}]), 'unavailable');
-assert.equal(explanationStatus('not_requested', []), 'not_requested');
+assert.equal(getShapExplanationStatus('available', [{shap_value: 0.25}]), 'available');
+assert.equal(getShapExplanationStatus('available', [{shap_value: 0}]), 'available');
+assert.equal(getShapExplanationStatus('available', [{shap_value: NaN}]), 'no_valid_contributions');
+assert.equal(getShapExplanationStatus('available', [{shap_value: Infinity}]), 'no_valid_contributions');
+assert.equal(getShapExplanationStatus('available', []), 'no_valid_contributions');
+assert.equal(getShapExplanationStatus('unavailable', [{shap_value: 0.25}]), 'unavailable');
+assert.equal(getShapExplanationStatus('unavailable', []), 'unavailable');
+assert.equal(getShapExplanationStatus('not_requested', []), 'not_requested');
+assert.equal(getShapExplanationStatus(null, [{shap_value: 0.25}]), 'available');
+assert.equal(getShapExplanationStatus(null, []), 'unavailable');
+assert.equal(getShapExplanationStatus('unexpected_status', [{shap_value: 0.25}]), 'unavailable');
+assert.equal(getShapExplanationStatus('unexpected_status', []), 'unavailable');
 """
 
     result = subprocess.run(
