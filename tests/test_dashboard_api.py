@@ -280,6 +280,20 @@ def test_ieee_csv_endpoint_scores_rows_and_preserves_global_row_numbers(
     assert payload["decision_made"] is False
 
 
+def test_ieee_csv_endpoint_rejects_more_than_maximum_rows(client):
+    header = "TransactionAmt,identity_available,card1,ProductCD\n"
+    rows = ["10,0,12345,W"] * (dashboard.MAX_TRANSACTIONS + 1)
+    content = header + "\n".join(rows)
+
+    response = client.post(
+        "/api/ieee-score-csv",
+        files={"file": ("too-many-rows.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 413
+    assert str(dashboard.MAX_TRANSACTIONS) in response.json()["detail"]
+
+
 def test_ieee_csv_endpoint_rejects_duplicate_headers(client):
     content = (
         "TransactionAmt,identity_available,card1,card1,ProductCD\n"
