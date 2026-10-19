@@ -222,7 +222,25 @@ def build_executive_summary(
     patterns = evidence_assessment.get("patterns", [])
     decision = evidence_assessment.get("decision", "NO_SUSPICIOUS_ACTIVITY")
 
-    if risk_score == 0 or not patterns:
+    expected_decision = (
+        "NO_SUSPICIOUS_ACTIVITY"
+        if risk_score == 0
+        else "REQUIRES_FURTHER_INVESTIGATION"
+    )
+    inconsistent_assessment = (
+        decision != expected_decision
+        or (risk_score == 0 and bool(patterns))
+        or (risk_score > 0 and not patterns)
+    )
+
+    if inconsistent_assessment:
+        return (
+            "Investigation summary unavailable because the risk score, decision, "
+            "and detected patterns are inconsistent. Validate the evidence "
+            "assessment before using this summary."
+        )
+
+    if risk_score == 0:
         return (
             "No suspicious activity was detected by the configured fraud-pattern "
             "checks in this batch. This does not establish that every transaction "

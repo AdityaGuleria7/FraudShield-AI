@@ -144,6 +144,43 @@ def test_clean_summary_does_not_claim_safety_when_patterns_are_empty():
     assert "Review data-quality results" in summary
 
 
+@pytest.mark.parametrize(
+    "assessment",
+    [
+        {
+            "risk_score": 70,
+            "risk_level": "HIGH",
+            "patterns": [],
+            "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        },
+        {
+            "risk_score": 0,
+            "risk_level": "LOW",
+            "patterns": ["VELOCITY_ATTACK"],
+            "decision": "NO_SUSPICIOUS_ACTIVITY",
+        },
+        {
+            "risk_score": 0,
+            "risk_level": "LOW",
+            "patterns": [],
+            "decision": "REQUIRES_FURTHER_INVESTIGATION",
+        },
+        {
+            "risk_score": 70,
+            "risk_level": "HIGH",
+            "patterns": ["VELOCITY_ATTACK"],
+            "decision": "NO_SUSPICIOUS_ACTIVITY",
+        },
+    ],
+)
+def test_inconsistent_assessment_never_gets_clean_summary(assessment):
+    summary = build_executive_summary(assessment, [])
+
+    assert "summary unavailable" in summary
+    assert "inconsistent" in summary
+    assert "No suspicious activity was detected" not in summary
+
+
 def test_build_executive_summary_critical():
     evidence_assessment = {
         "risk_score": 85,
