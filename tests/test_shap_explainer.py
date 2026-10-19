@@ -79,3 +79,23 @@ def test_explain_batch_with_shap(trained_tree_artifact):
     for exp in batch_explanations:
         assert exp["explanation_type"] == "shap_tree_explainer"
         assert len(exp["top_n_drivers"]) == 2
+
+
+@pytest.mark.parametrize(
+    ("shap_value", "expected_direction", "expected_phrase"),
+    [
+        (0.0, "neutral", "does not change the model score"),
+        (0.15, "increases_risk", "pushes the model score higher"),
+        (-0.15, "decreases_risk", "pushes the model score lower"),
+    ],
+)
+def test_shap_driver_direction_handles_zero_and_signed_values(
+    shap_value, expected_direction, expected_phrase
+):
+    from app.explainability.shap_explainer import _driver_direction
+
+    assert _driver_direction(shap_value) == expected_direction
+    description = _plain_driver_description(
+        "TransactionAmt", 100.0, shap_value
+    )
+    assert expected_phrase in description

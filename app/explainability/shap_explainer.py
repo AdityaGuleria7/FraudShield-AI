@@ -30,6 +30,15 @@ FEATURE_LABELS: dict[str, str] = {
 }
 
 
+def _driver_direction(shap_val: float) -> str:
+    """Classify a SHAP contribution without treating zero as negative."""
+    if shap_val > 0:
+        return "increases_risk"
+    if shap_val < 0:
+        return "decreases_risk"
+    return "neutral"
+
+
 def _label(feature: str) -> str:
     """Return a human-readable label for a feature name."""
     return FEATURE_LABELS.get(feature, feature.replace("_", " ").title())
@@ -86,7 +95,7 @@ def explain_with_shap(
     # Build driver cards
     drivers = []
     for feature, value, shap_val in zip(features, frame.iloc[0], values):
-        direction = "increases_risk" if shap_val > 0 else "decreases_risk"
+        direction = _driver_direction(shap_val)
         drivers.append(
             {
                 "feature": feature,
@@ -129,7 +138,12 @@ def _plain_driver_description(
 ) -> str:
     """Generate a one-line plain-language description of a SHAP driver."""
     label = _label(feature)
-    direction = "pushes the model score higher" if shap_val > 0 else "pushes the model score lower"
+    if shap_val > 0:
+        direction = "pushes the model score higher"
+    elif shap_val < 0:
+        direction = "pushes the model score lower"
+    else:
+        return f"{label} does not change the model score direction"
     magnitude = abs(shap_val)
 
     if magnitude > 0.1:
@@ -185,7 +199,7 @@ def explain_batch_with_shap(
 
         for feature, shap_val in zip(features, shap_row):
             raw_val = feature_row.get(feature)
-            direction = "increases_risk" if shap_val > 0 else "decreases_risk"
+            direction = _driver_direction(shap_val)
             drivers.append(
                 {
                     "feature": feature,
