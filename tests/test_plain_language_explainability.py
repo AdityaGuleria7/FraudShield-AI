@@ -181,6 +181,39 @@ def test_inconsistent_assessment_never_gets_clean_summary(assessment):
     assert "No suspicious activity was detected" not in summary
 
 
+@pytest.mark.parametrize("invalid_score", [-1, 101, 1.5, "unknown", True, None])
+def test_executive_summary_rejects_invalid_risk_score(invalid_score):
+    assessment = {
+        "risk_score": invalid_score,
+        "risk_level": "HIGH",
+        "patterns": ["VELOCITY_ATTACK"],
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+    }
+
+    summary = build_executive_summary(assessment, [])
+
+    assert "summary unavailable" in summary
+    assert "invalid score or pattern data" in summary
+
+
+@pytest.mark.parametrize(
+    "invalid_patterns",
+    [None, "VELOCITY_ATTACK", [""], [None], [123]],
+)
+def test_executive_summary_rejects_invalid_pattern_data(invalid_patterns):
+    assessment = {
+        "risk_score": 35,
+        "risk_level": "MEDIUM",
+        "patterns": invalid_patterns,
+        "decision": "REQUIRES_FURTHER_INVESTIGATION",
+    }
+
+    summary = build_executive_summary(assessment, [])
+
+    assert "summary unavailable" in summary
+    assert "invalid score or pattern data" in summary
+
+
 def test_build_executive_summary_critical():
     evidence_assessment = {
         "risk_score": 85,

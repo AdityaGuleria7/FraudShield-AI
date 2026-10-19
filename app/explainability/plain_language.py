@@ -222,6 +222,19 @@ def build_executive_summary(
     patterns = evidence_assessment.get("patterns", [])
     decision = evidence_assessment.get("decision", "NO_SUSPICIOUS_ACTIVITY")
 
+    if (
+        isinstance(risk_score, bool)
+        or not isinstance(risk_score, int)
+        or not 0 <= risk_score <= 100
+        or not isinstance(patterns, list)
+        or any(not isinstance(pattern, str) or not pattern for pattern in patterns)
+    ):
+        return (
+            "Investigation summary unavailable because the risk assessment "
+            "contains invalid score or pattern data. Validate the evidence "
+            "assessment before using this summary."
+        )
+
     expected_decision = (
         "NO_SUSPICIOUS_ACTIVITY"
         if risk_score == 0
