@@ -42,6 +42,9 @@ def normalize_investigation_result(
     if findings is not None and not isinstance(findings, list):
         raise ValueError("Pattern findings must be a list or None.")
     findings = findings or []
+    if any(not isinstance(finding, dict) for finding in findings):
+        raise ValueError("Each pattern finding must be a dictionary.")
+
 
     if data_quality and data_quality.get("status") == "REJECT":
         status = "REJECTED"

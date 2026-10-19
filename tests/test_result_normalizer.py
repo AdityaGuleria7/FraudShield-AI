@@ -58,6 +58,21 @@ def test_normalizer_rejects_non_list_pattern_findings(invalid_findings):
         )
 
 
+@pytest.mark.parametrize(
+    "invalid_finding",
+    [None, "invalid", 123, True, []],
+)
+def test_normalizer_rejects_non_dictionary_pattern_findings(invalid_finding):
+    with pytest.raises(
+        ValueError,
+        match="Each pattern finding must be a dictionary",
+    ):
+        normalize_investigation_result(
+            "task-invalid-finding-entry",
+            {"pattern_findings": [invalid_finding]},
+        )
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",
