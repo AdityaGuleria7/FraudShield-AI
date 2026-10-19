@@ -38,7 +38,10 @@ def normalize_investigation_result(
         raise ValueError("Evidence assessment must be a dictionary or None.")
 
     case = result.get("investigation_case")
-    findings = result.get("pattern_findings") or []
+    findings = result.get("pattern_findings")
+    if findings is not None and not isinstance(findings, list):
+        raise ValueError("Pattern findings must be a list or None.")
+    findings = findings or []
 
     if data_quality and data_quality.get("status") == "REJECT":
         status = "REJECTED"

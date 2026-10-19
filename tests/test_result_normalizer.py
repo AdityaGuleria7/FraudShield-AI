@@ -43,6 +43,21 @@ def test_normalizer_rejects_non_dictionary_data_quality(
         )
 
 
+@pytest.mark.parametrize(
+    "invalid_findings",
+    ["invalid", 123, True, {"pattern": "VELOCITY_ATTACK"}],
+)
+def test_normalizer_rejects_non_list_pattern_findings(invalid_findings):
+    with pytest.raises(
+        ValueError,
+        match="Pattern findings must be a list or None",
+    ):
+        normalize_investigation_result(
+            "task-invalid-findings",
+            {"pattern_findings": invalid_findings},
+        )
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",
