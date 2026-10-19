@@ -14,6 +14,18 @@ def test_normalizer_rejects_non_dictionary_result(invalid_result):
         normalize_investigation_result("task-invalid-result", invalid_result)
 
 
+@pytest.mark.parametrize("invalid_evidence", [[], "invalid", 123, True])
+def test_normalizer_rejects_non_dictionary_evidence_assessment(invalid_evidence):
+    with pytest.raises(
+        ValueError,
+        match="Evidence assessment must be a dictionary or None",
+    ):
+        normalize_investigation_result(
+            "task-invalid-evidence",
+            {"evidence_assessment": invalid_evidence},
+        )
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",
