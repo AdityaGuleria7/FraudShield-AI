@@ -62,7 +62,11 @@ def normalize_investigation_result(
         )
         risk = None
     elif evidence is not None:
-        score = int(evidence["risk_score"])
+        score = evidence["risk_score"]
+        if isinstance(score, bool) or not isinstance(score, int):
+            raise ValueError(
+                "Evidence risk_score must be an integer between 0 and 100."
+            )
         risk = RiskAssessment(
             score=score,
             level=evidence["risk_level"],

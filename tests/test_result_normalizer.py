@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.models.result_normalizer import normalize_investigation_result
 
 
@@ -75,6 +77,30 @@ def test_normalizes_risky_result_and_preserves_reason():
     assert result["review"]["required_actions"] == [
         "Investigate supporting evidence."
     ]
+
+
+@pytest.mark.parametrize("invalid_score", [47.9, "47", True, False, None])
+def test_normalizer_rejects_non_integer_risk_scores(invalid_score):
+    result = {
+        "data_quality": {"status": "PASS"},
+        "pattern_review": SimpleNamespace(
+            status="PASS",
+            approved_for_next_stage=True,
+            issues=[],
+            required_actions=[],
+        ),
+        "evidence_assessment": {
+            "risk_score": invalid_score,
+            "risk_level": "MEDIUM",
+            "decision": "REQUIRES_FURTHER_INVESTIGATION",
+            "evidence_quality": "STRONG",
+            "evidence_count": 1,
+        },
+        "pattern_findings": [],
+    }
+
+    with pytest.raises(ValueError, match="risk_score must be an integer"):
+        normalize_investigation_result("task-invalid-score", result)
 
 
 def test_rejected_data_is_not_given_a_risk_score():
