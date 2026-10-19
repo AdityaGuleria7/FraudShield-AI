@@ -1525,7 +1525,7 @@ function downloadIeeeCsv() {
   const cols = ['row','TransactionID','experimental_model_score','score_interpretation'];
   const q = v => {
     let value = String(v ?? '');
-    if (typeof v === 'string' && /^[\u0000-\u0020]*[=+\-@]/.test(value)) {
+    if (typeof v === 'string' && /^[\s\u200B\uFEFF]*[=+\-@]/u.test(value)) {
       value = "'" + value;
     }
     return '"' + value.replace(/"/g, '""') + '"';
