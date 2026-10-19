@@ -72,3 +72,45 @@ assert.equal(hasValidShapContributions(null), false);
         timeout=10,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_dashboard_explanation_status_uses_valid_contributions():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
+
+    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    match = re.search(
+        r"function hasValidShapContributions\(drivers\) \{.*?\n\}",
+        source,
+        flags=re.DOTALL,
+    )
+    assert match, "SHAP contribution availability helper was not found in dashboard source."
+
+    script = match.group(0) + """
+const assert = require('node:assert/strict');
+
+function explanationStatus(status, drivers) {
+  const hasValidContributions = hasValidShapContributions(drivers);
+  if (status === 'unavailable') return 'unavailable';
+  if (status === 'not_requested') return 'not_requested';
+  if (!hasValidContributions) return 'no_valid_contributions';
+  return 'available';
+}
+
+assert.equal(explanationStatus('available', [{shap_value: 0.25}]), 'available');
+assert.equal(explanationStatus('available', [{shap_value: NaN}]), 'no_valid_contributions');
+assert.equal(explanationStatus('available', [{shap_value: Infinity}]), 'no_valid_contributions');
+assert.equal(explanationStatus('available', []), 'no_valid_contributions');
+assert.equal(explanationStatus('unavailable', [{shap_value: 0.25}]), 'unavailable');
+assert.equal(explanationStatus('not_requested', []), 'not_requested');
+"""
+
+    result = subprocess.run(
+        [node, "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr

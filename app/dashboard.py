@@ -1458,11 +1458,12 @@ async function runIeeeScore(event) {
     }
 
     const explanationStatus = r.explanation_status
-      || (drivers.length ? 'available' : 'unavailable');
+      || (hasValidContributions ? 'available' : 'unavailable');
     const explanationStatusEl = $('ieeeExplanationStatus');
     if (explanationStatus === 'unavailable') {
-      explanationStatusEl.textContent =
-        'The score was generated, but its explanation is unavailable. This experimental score is not proof of fraud.';
+      explanationStatusEl.textContent = hasValidContributions
+        ? 'The explanation status is unavailable, but contribution values were returned. Treat this experimental score as an investigation signal only.'
+        : 'The score was generated, but no valid explanation contributions are available. This experimental score is not proof of fraud.';
       explanationStatusEl.style.display = 'block';
     } else if (explanationStatus === 'not_requested') {
       explanationStatusEl.textContent = 'An explanation was not requested for this result.';
