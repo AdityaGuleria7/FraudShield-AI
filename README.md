@@ -2,24 +2,24 @@
 
 <div align="center">
 
-**Evidence-Driven · Multi-Agent · Explainable · Auditable**
+**Evidence-Driven · Analyst/Reviewer · Explainable · Auditable**
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.143-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikitlearn)](https://scikit-learn.org)
 [![LangChain](https://img.shields.io/badge/LangChain-1.4-1C3C3C)](https://langchain.com)
-[![Tests](https://img.shields.io/badge/Tests-305%20passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-364%20passing-brightgreen)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
 </div>
 
 ---
 
-FraudShield AI is a **production-grade fraud detection platform** built around one principle:
+FraudShield AI is a **experimental fraud detection research and portfolio platform** built around one principle:
 
 > **No trust without verification. Evidence over consensus.**
 
-Instead of a single model score triggering a decision, FraudShield combines rule-based pattern detection, machine learning, multi-agent adversarial review, and a tamper-evident audit ledger — making every flagged transaction **explainable, traceable, and reviewable**.
+Instead of a single model score triggering a decision, FraudShield combines deterministic rule-based pattern detection, a machine-learning ranking model, analyst/reviewer validation stages, and a tamper-evident audit ledger — making every flagged transaction **explainable, traceable, and reviewable**.
 
 > **Project status:** Portfolio and research project under active development. Not a production deployment or guarantee of fraud prevention.
 
@@ -58,7 +58,7 @@ See [Model Card](docs/MODEL_CARD.md), [Evaluation Protocol](docs/EVALUATION.md),
 │                         │   (pattern recognition, feature extraction)   │
 │                         ▼                                               │
 │                    Stage 2: Data Guardian Review                        │
-│                         │   (independent adversarial review)            │
+│                         │   (deterministic reviewer validation)            │
 │                         ▼                                               │
 │                    Stage 3: Data Quality Gate                           │
 │                         │   (reject malformed or low-quality data)      │
@@ -89,9 +89,9 @@ See [Model Card](docs/MODEL_CARD.md), [Evaluation Protocol](docs/EVALUATION.md),
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why multi-agent adversarial design?**
+**Why analyst/reviewer validation?**
 
-Each stage is reviewed by an independent guardian before the next stage proceeds. No single agent can approve its own findings. This mirrors how real fraud investigation teams work — an analyst flags, a reviewer verifies, a policy engine authorizes.
+Analyst outputs are checked by separate reviewer components before the pipeline advances. These are deterministic Python components that validate agent identity and evidence requirements; they are not autonomous LLM agents. This reflects a review principle used in fraud investigation: an analyst proposes findings, a reviewer checks them, and policy controls authorize protected operations.
 
 ---
 
@@ -103,14 +103,14 @@ Each stage is reviewed by an independent guardian before the next stage proceeds
 - **Account Takeover** — coordinated signals: new device + new IP + high-value + unusual time
 - **New Device High-Value** — first-time device used for a large transaction
 
-### 🤖 Multi-Agent Adversarial Review
+### 🤖 Analyst/Reviewer Validation
 - Data Analyst + Data Guardian (independent review of analysis)
 - Fraud Pattern Analyst + Fraud Pattern Guardian
 - Structured agent contracts (Pydantic) — outputs must satisfy defined schemas before downstream use
 - Least-privilege policy engine — agents only access what they're authorized for
 
 ### 📊 Machine Learning (IEEE-CIS)
-- ExtraTrees classifier trained on 472,432 real fraud transactions
+- ExtraTrees classifier trained on 413,378 transaction rows in the chronological training partition (approximately 3.52% fraud prevalence)
 - Chronological three-period train/validate/test split (no future leakage)
 - Cost-sensitive threshold optimization (false-negative cost weighted 5× false-positive)
 - Batch CSV scoring via dashboard; per-row experimental scores
@@ -235,7 +235,7 @@ See [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for full details, split
 FraudShield-AI/
 ├── app/
 │   ├── agents/              # Data analyst + fraud pattern analyst agents
-│   │   └── guardians/       # Independent adversarial reviewer agents
+│   │   └── guardians/       # Deterministic reviewer components
 │   ├── audit/               # Hash-linked ledger, signed checkpoints, S3 anchoring
 │   ├── core/                # 8-stage orchestration pipeline
 │   ├── data/                # Synthetic transaction generation
@@ -248,7 +248,7 @@ FraudShield-AI/
 │   └── security/            # Policy engine, operation registry, secure executor
 ├── examples/                # Ready-to-use sample CSV files
 ├── scripts/                 # Training, evaluation, and demo scripts
-├── tests/                   # 305 automated tests
+├── tests/                   # 364 automated tests
 ├── docs/                    # Research notes and methodology
 ├── .env.example             # Environment variable template
 ├── Dockerfile               # Production container image
@@ -301,7 +301,7 @@ For meaningful tamper-evidence:
 
 ## Roadmap
 
-- [x] Multi-agent adversarial pipeline (8 stages)
+- [x] Analyst/reviewer pipeline (8 stages)
 - [x] Hash-linked audit ledger with signed checkpoints
 - [x] IEEE-CIS ML model with chronological validation
 - [x] FastAPI dashboard with rate limiting and authentication
