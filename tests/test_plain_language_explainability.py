@@ -123,6 +123,25 @@ def test_build_executive_summary_clean():
     }
     summary = build_executive_summary(evidence_assessment, [])
     assert "No suspicious activity was detected" in summary
+    assert "configured fraud-pattern checks" in summary
+    assert "data-quality results" in summary
+    assert "pipeline coverage" in summary
+    assert "All transactions passed data quality checks" not in summary
+    assert "No further investigation is required" not in summary
+
+
+def test_clean_summary_does_not_claim_safety_when_patterns_are_empty():
+    assessment = {
+        "risk_score": 0,
+        "risk_level": "LOW",
+        "patterns": [],
+        "decision": "NO_SUSPICIOUS_ACTIVITY",
+    }
+
+    summary = build_executive_summary(assessment, [])
+
+    assert "fraud is impossible" in summary
+    assert "Review data-quality results" in summary
 
 
 def test_build_executive_summary_critical():

@@ -224,9 +224,11 @@ def build_executive_summary(
 
     if risk_score == 0 or not patterns:
         return (
-            "No suspicious activity was detected in this batch. "
-            "All transactions passed data quality checks and fraud pattern analysis. "
-            "No further investigation is required at this time."
+            "No suspicious activity was detected by the configured fraud-pattern "
+            "checks in this batch. This does not establish that every transaction "
+            "passed all data-quality checks or that fraud is impossible. "
+            "Review data-quality results and pipeline coverage before closing "
+            "the investigation."
         )
 
     pattern_count = len(patterns)
