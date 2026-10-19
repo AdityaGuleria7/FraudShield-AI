@@ -10,6 +10,15 @@ from app.models.investigation_result import (
 )
 
 
+def _validated_evidence_count(value: Any) -> int:
+    """Reject evidence counts that require implicit type coercion."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(
+            "Evidence count must be a non-negative integer."
+        )
+    return value
+
+
 def normalize_investigation_result(
     task_id: str,
     result: dict[str, Any],
@@ -72,7 +81,7 @@ def normalize_investigation_result(
             level=evidence["risk_level"],
             decision=evidence["decision"],
             evidence_quality=evidence["evidence_quality"],
-            evidence_count=int(evidence["evidence_count"]),
+            evidence_count=_validated_evidence_count(evidence["evidence_count"]),
             reasons=[
                 str(item.get("explanation", {}).get("plain_summary"))
                 for item in findings

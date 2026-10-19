@@ -103,6 +103,30 @@ def test_normalizer_rejects_non_integer_risk_scores(invalid_score):
         normalize_investigation_result("task-invalid-score", result)
 
 
+@pytest.mark.parametrize("invalid_count", [2.7, "2", True, False, None])
+def test_normalizer_rejects_non_integer_evidence_counts(invalid_count):
+    result = {
+        "data_quality": {"status": "PASS"},
+        "pattern_review": SimpleNamespace(
+            status="PASS",
+            approved_for_next_stage=True,
+            issues=[],
+            required_actions=[],
+        ),
+        "evidence_assessment": {
+            "risk_score": 55,
+            "risk_level": "HIGH",
+            "decision": "REQUIRES_FURTHER_INVESTIGATION",
+            "evidence_quality": "STRONG",
+            "evidence_count": invalid_count,
+        },
+        "pattern_findings": [],
+    }
+
+    with pytest.raises(ValueError, match="Evidence count must be a non-negative integer"):
+        normalize_investigation_result("task-invalid-evidence-count", result)
+
+
 def test_rejected_data_is_not_given_a_risk_score():
     result = normalize_investigation_result(
         "task-3",
