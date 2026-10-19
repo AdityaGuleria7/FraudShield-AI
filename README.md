@@ -223,7 +223,7 @@ Generates synthetic transactions, injects a velocity-attack scenario, runs the f
    PYTHONPATH=. python scripts/train_ieee_tree.py
    PYTHONPATH=. python scripts/validate_ieee_three_period.py
    ```
-4. Metrics are saved to `reports/`. The trained artifact goes to `artifacts/`.
+4. Metrics are saved locally to `reports/`, and the trained artifact goes to `artifacts/`. Both directories are excluded from Git; summarized experimental results and their limitations are documented in `docs/EVALUATION.md` and `docs/IEEE_CIS_RESEARCH.md`.
 
 See [IEEE-CIS Research Notes](docs/IEEE_CIS_RESEARCH.md) for full details, split strategy, and limitations.
 
