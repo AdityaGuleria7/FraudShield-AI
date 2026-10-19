@@ -5,6 +5,15 @@ import pytest
 from app.models.result_normalizer import normalize_investigation_result
 
 
+@pytest.mark.parametrize("invalid_result", [None, [], 123, "invalid"])
+def test_normalizer_rejects_non_dictionary_result(invalid_result):
+    with pytest.raises(
+        ValueError,
+        match="Investigation result must be a dictionary",
+    ):
+        normalize_investigation_result("task-invalid-result", invalid_result)
+
+
 def test_normalizes_completed_low_risk_result():
     result = normalize_investigation_result(
         "task-1",

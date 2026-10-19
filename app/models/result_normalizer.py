@@ -25,6 +25,9 @@ def normalize_investigation_result(
 ) -> dict[str, Any]:
     """Return a JSON-compatible normalized result without mutating input."""
 
+    if not isinstance(result, dict):
+        raise ValueError("Investigation result must be a dictionary.")
+
     data_quality = result.get("data_quality")
     pattern_review = result.get("pattern_review")
     evidence = result.get("evidence_assessment")
