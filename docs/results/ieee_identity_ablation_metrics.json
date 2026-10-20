@@ -1,0 +1,83 @@
+{
+  "experiment": "Identity/device feature ablation",
+  "split": "Chronological 70/15/15; train on first 70%, evaluate final 15%",
+  "note": "Exploratory iterative benchmark, not an untouched test. Observational associations do not establish causation.",
+  "identity_available_rate": 0.2442391709283029,
+  "models": {
+    "baseline": {
+      "average_precision": 0.14388108085979573,
+      "roc_auc": 0.7769300277149009,
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 223,
+          "precision": 0.2519774011299435,
+          "recall": 0.07233214401556926
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 421,
+          "precision": 0.23771880293619424,
+          "recall": 0.13655530327602985
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 911,
+          "precision": 0.2056897719575525,
+          "recall": 0.29549140447615957
+        }
+      },
+      "average_precision_change_vs_baseline": 0.0
+    },
+    "baseline_plus_identity_availability": {
+      "average_precision": 0.1525071621763342,
+      "roc_auc": 0.7789502819932691,
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 244,
+          "precision": 0.27570621468926554,
+          "recall": 0.07914369120986052
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 462,
+          "precision": 0.2608695652173913,
+          "recall": 0.14985403827440805
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 917,
+          "precision": 0.20704447956649358,
+          "recall": 0.29743756081738565
+        }
+      },
+      "average_precision_change_vs_baseline": 0.00862608131653847
+    },
+    "identity_device_enriched": {
+      "average_precision": 0.18906052407546767,
+      "roc_auc": 0.7906473744215522,
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 315,
+          "precision": 0.3559322033898305,
+          "recall": 0.10217320791436912
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 606,
+          "precision": 0.34217955957086393,
+          "recall": 0.19656179046383393
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 1080,
+          "precision": 0.24384736960939263,
+          "recall": 0.3503081414206941
+        }
+      },
+      "average_precision_change_vs_baseline": 0.04517944321567194
+    }
+  }
+}

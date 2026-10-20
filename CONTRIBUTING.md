@@ -11,7 +11,7 @@ cd FraudShield-AI
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 cp .env.example .env
 # Edit .env — set FRAUDSHIELD_AUTH_USERNAME and FRAUDSHIELD_AUTH_PASSWORD
@@ -23,7 +23,7 @@ cp .env.example .env
 python -m pytest -q
 ```
 
-The suite must pass (305+ tests) before submitting a pull request.
+The suite must pass (449 tests at the time of writing) before submitting a pull request. No model file or Kaggle data is needed.
 
 Run a specific module:
 

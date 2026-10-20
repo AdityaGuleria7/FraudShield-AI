@@ -41,3 +41,9 @@ These results use a chronological period that was examined during earlier experi
 The application verifies the model file's SHA-256 digest before deserializing it. The built-in digest is for the currently reviewed local artifact. A deliberately rebuilt or replaced artifact requires a separately verified, trusted digest to be configured before loading.
 
 Hash verification helps detect unexpected artifact changes; it does not make an untrusted model safe, protect a compromised machine, or replace access controls for the artifact and its trusted hash configuration.
+
+## Explainability
+
+Per-transaction explanations are Shapley values computed over the *original input features* through the full scikit-learn pipeline (not the ~1,600 one-hot columns). The baseline is the model score when no supplied feature is provided, and contributions sum exactly to `model score - baseline score`. Features a caller did not supply receive no driver. Explanations describe this model's uncalibrated score; they do not confirm fraud, establish causality, or prove fairness.
+
+Raw metrics behind every figure in this card are committed in `docs/results/`.

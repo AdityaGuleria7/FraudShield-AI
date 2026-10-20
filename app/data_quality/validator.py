@@ -2,6 +2,8 @@ from datetime import datetime
 from ipaddress import ip_address
 from typing import Any
 
+from app.fraud.impossible_travel import ImpossibleTravelDetector
+
 
 class DataQualityValidator:
     REQUIRED_FIELDS = {
@@ -16,7 +18,9 @@ class DataQualityValidator:
         "is_fraud",
     }
 
-    VALID_COUNTRIES = {"IN", "US", "GB", "SG"}
+    # Single source of truth: every accepted country must also be usable by the
+    # impossible-travel detector (which needs coordinates for it).
+    VALID_COUNTRIES = frozenset(ImpossibleTravelDetector.COUNTRY_COORDINATES)
     OPTIONAL_FIELDS = {"fraud_scenario"}
     MIN_TRANSACTION_AMOUNT = 0
     MAX_TRANSACTION_AMOUNT = 1_000_000

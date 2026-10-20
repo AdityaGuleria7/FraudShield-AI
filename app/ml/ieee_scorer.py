@@ -10,6 +10,7 @@ import joblib
 import pandas as pd
 
 from app.ml.artifact_integrity import verify_artifact
+from app.ml.frame import build_model_frame
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -107,6 +108,7 @@ def score_transactions(
     artifact = load_artifact()
     features = artifact["features"]
     numeric_features = set(artifact["numeric_features"])
+    categorical_features = list(artifact["categorical_features"])
     expected_features = set(features)
 
     cleaned_rows = []
@@ -152,7 +154,7 @@ def score_transactions(
 
             if _is_missing(value):
                 missing_features += 1
-                clean[feature] = float("nan") if feature in numeric_features else None
+                clean[feature] = float("nan")
                 continue
 
             available_features += 1
@@ -187,7 +189,7 @@ def score_transactions(
             "missing_features": missing_features,
         })
 
-    frame = pd.DataFrame(cleaned_rows, columns=features)
+    frame = build_model_frame(cleaned_rows, features, categorical_features)
     scores = artifact["model"].predict_proba(frame)[:, 1]
 
     shap_explanations = None

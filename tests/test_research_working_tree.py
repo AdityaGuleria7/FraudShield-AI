@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("xgboost", reason="optional research dependency (requirements-research.txt)")
+
 import runpy
 import subprocess
 from pathlib import Path

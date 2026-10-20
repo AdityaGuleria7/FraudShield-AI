@@ -11,7 +11,7 @@ def test_finding_cards_use_neutral_badges_for_all_patterns():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard rendering helper.")
 
-    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    source = (Path("app/dashboard.py").read_text(encoding="utf-8") + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     match = re.search(
         r"function renderFindingCard\(finding\) \{.*?^\}",
         source,

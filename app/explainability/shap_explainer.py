@@ -65,6 +65,199 @@ def _extract_positive_shap_matrix(shap_values: Any) -> np.ndarray:
     return np.asarray(matrix, dtype=float)
 
 
+
+# ── Pipeline-aware Shapley attribution ───────────────────────────────────────
+# The production artifact is a scikit-learn Pipeline (imputer + one-hot encoder
+# + ExtraTrees, ~1,600 transformed columns). shap.TreeExplainer cannot take a
+# Pipeline and is unreliable/slow on that tree ensemble, so for pipelines we
+# compute Shapley values directly over the *original* input features:
+#
+#   value(S) = pipeline score when only the features in S are supplied and
+#              every other feature is treated as "not provided" (missing).
+#
+# Contributions therefore sum exactly to  score(row) - score(nothing provided).
+# Exact enumeration is used for small inputs; permutation sampling (fixed seed,
+# deterministic) is used when many features are supplied.
+
+EXACT_MAX_FEATURES = 8
+PERMUTATION_SAMPLES = 24
+BASELINE_NOTE = "Baseline = the model score when none of the supplied features are provided."
+
+
+def _is_pipeline(model: Any) -> bool:
+    return hasattr(model, "named_steps") and hasattr(model, "predict_proba")
+
+
+def _is_missing_value(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        return bool(np.isnan(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _masked_frame(
+    rows: list[dict[str, Any]],
+    features: list[str],
+    categorical: set[str],
+    masks: list[tuple[int, frozenset[str]]],
+) -> pd.DataFrame:
+    from app.ml.frame import build_model_frame
+
+    records = [
+        {f: rows[row_idx].get(f) for f in features if f in keep}
+        for row_idx, keep in masks
+    ]
+    return build_model_frame(records, features, categorical)
+
+
+def _pipeline_shapley(
+    artifact: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return per-row {feature: contribution} plus baseline and score."""
+    from itertools import combinations
+    from math import factorial
+
+    model = artifact["model"]
+    features = list(artifact["features"])
+    categorical = set(artifact.get("categorical_features", []))
+
+    # Which features did the caller actually supply for each row?
+    provided = [
+        [f for f in features if not _is_missing_value(r.get(f))] for r in rows
+    ]
+
+    # Build every coalition we need, across all rows, then predict once.
+    plans: list[tuple[int, list[str], str, list[tuple[int, frozenset[str]]]]] = []
+    masks: list[tuple[int, frozenset[str]]] = []
+    index_of: dict[tuple[int, frozenset[str]], int] = {}
+
+    def register(row_idx: int, subset: frozenset[str]) -> None:
+        key = (row_idx, subset)
+        if key not in index_of:
+            index_of[key] = len(masks)
+            masks.append(key)
+
+    rng = np.random.default_rng(20240601)
+    perms_by_row: dict[int, list[list[str]]] = {}
+    for row_idx, feats in enumerate(provided):
+        k = len(feats)
+        register(row_idx, frozenset())
+        register(row_idx, frozenset(feats))
+        if k == 0:
+            continue
+        if k <= EXACT_MAX_FEATURES:
+            for size in range(k + 1):
+                for combo in combinations(feats, size):
+                    register(row_idx, frozenset(combo))
+        else:
+            perms = []
+            for _ in range(PERMUTATION_SAMPLES):
+                order = list(rng.permutation(feats))
+                perms.append(order)
+                for pos in range(k + 1):
+                    register(row_idx, frozenset(order[:pos]))
+            perms_by_row[row_idx] = perms
+
+    frame = _masked_frame(rows, features, categorical, masks)
+    probs = model.predict_proba(frame)[:, 1]
+
+    def v(row_idx: int, subset: frozenset[str]) -> float:
+        return float(probs[index_of[(row_idx, subset)]])
+
+    out = []
+    for row_idx, feats in enumerate(provided):
+        k = len(feats)
+        contrib = {f: 0.0 for f in feats}
+        if k and k <= EXACT_MAX_FEATURES:
+            for f in feats:
+                others = [x for x in feats if x != f]
+                for size in range(len(others) + 1):
+                    weight = factorial(size) * factorial(k - size - 1) / factorial(k)
+                    for combo in combinations(others, size):
+                        base = frozenset(combo)
+                        contrib[f] += weight * (v(row_idx, base | {f}) - v(row_idx, base))
+        elif k:
+            for order in perms_by_row[row_idx]:
+                for pos, f in enumerate(order):
+                    before = frozenset(order[:pos])
+                    contrib[f] += v(row_idx, before | {f}) - v(row_idx, before)
+            for f in feats:
+                contrib[f] /= len(perms_by_row[row_idx])
+        out.append(
+            {
+                "contributions": contrib,
+                "baseline_score": v(row_idx, frozenset()),
+                "score": v(row_idx, frozenset(feats)),
+                "method": "exact" if k <= EXACT_MAX_FEATURES else "permutation_sampling",
+            }
+        )
+    return out
+
+
+def _driver_cards(
+    features: list[str],
+    raw_row: dict[str, Any],
+    contributions: dict[str, float],
+) -> list[dict[str, Any]]:
+    cards = []
+    for feature in features:
+        if feature not in contributions:
+            continue
+        value = raw_row.get(feature)
+        shap_val = contributions[feature]
+        cards.append(
+            {
+                "feature": feature,
+                "label": _label(feature),
+                "raw_value": value,
+                "shap_value": round(float(shap_val), 6),
+                "direction": _driver_direction(shap_val),
+                "impact_magnitude": abs(float(shap_val)),
+                "plain_description": _plain_driver_description(feature, value, shap_val),
+            }
+        )
+    cards.sort(key=lambda d: d["impact_magnitude"], reverse=True)
+    return cards
+
+
+def _pipeline_explanations(
+    artifact: dict[str, Any],
+    rows: list[dict[str, Any]],
+    top_n: int,
+) -> list[dict[str, Any]]:
+    features = list(artifact["features"])
+    results = []
+    for raw_row, res in zip(rows, _pipeline_shapley(artifact, rows)):
+        cards = _driver_cards(features, raw_row, res["contributions"])
+        top = cards[:top_n]
+        positive = [d for d in top if d["direction"] == "increases_risk"]
+        negative = [d for d in top if d["direction"] == "decreases_risk"]
+        results.append(
+            {
+                "explanation_type": "shapley_pipeline_attribution",
+                "model_type": artifact.get("model_type", "unknown"),
+                "attribution_method": res["method"],
+                "baseline_score": round(res["baseline_score"], 6),
+                "model_score": round(res["score"], 6),
+                "top_n_drivers": top,
+                "top_positive_driver": positive[0] if positive else None,
+                "top_negative_driver": negative[0] if negative else None,
+                "driver_count": len(cards),
+                "explainability_note": (
+                    "Contributions are Shapley values over the supplied input "
+                    "features and sum to (model score - baseline score). "
+                    + BASELINE_NOTE
+                    + " They describe this model's uncalibrated score and do not "
+                    "confirm fraud or establish real-world risk."
+                ),
+            }
+        )
+    return results
+
+
 def explain_with_shap(
     artifact: dict[str, Any],
     row: dict[str, Any],
@@ -84,6 +277,9 @@ def explain_with_shap(
 
     model = artifact["model"]
     features = artifact["features"]
+
+    if _is_pipeline(model):
+        return _pipeline_explanations(artifact, [row], top_n)[0]
 
     frame = pd.DataFrame([row], columns=features)
 
@@ -177,13 +373,16 @@ def explain_batch_with_shap(
 
     Batches the computation for efficiency.
     """
+    model = artifact["model"]
+    features = artifact["features"]
+
+    if _is_pipeline(model):
+        return _pipeline_explanations(artifact, rows, top_n)
+
     try:
         import shap
     except ImportError as exc:
         raise ImportError("shap is required: pip install shap") from exc
-
-    model = artifact["model"]
-    features = artifact["features"]
 
     frame = pd.DataFrame(rows, columns=features)
     explainer = shap.TreeExplainer(model)

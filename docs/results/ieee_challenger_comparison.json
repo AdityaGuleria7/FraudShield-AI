@@ -1,0 +1,197 @@
+{
+  "experiment": "IEEE-CIS chronological four-model comparison",
+  "features": [
+    "TransactionAmt",
+    "card1",
+    "card2",
+    "ProductCD",
+    "card4",
+    "card6"
+  ],
+  "partition_rule": "Earlier 70% train, next 15% calibration, latest 15% test; strict TransactionDT boundaries",
+  "threshold_rule": "Per-model 98th percentile of calibration scores; thresholds fixed before test evaluation",
+  "limitations": [
+    "Only six selected features are used.",
+    "The dataset period may have been used in earlier experiments; the latest 15% is not claimed to be a pristine holdout.",
+    "A percentile threshold is a ranking rule, not a cost-optimized business decision threshold.",
+    "Metrics on this benchmark do not establish production readiness."
+  ],
+  "partitions": {
+    "training_rows": 413378,
+    "calibration_rows": 88581,
+    "test_rows": 88581,
+    "training_boundary": 10438003.0,
+    "test_boundary": 13151880.0,
+    "test_fraud_cases": 3083
+  },
+  "models": {
+    "logistic_regression": {
+      "model": "logistic_regression",
+      "selected_threshold": 0.8366654518872708,
+      "threshold_rule": "98th percentile of calibration scores",
+      "precision": 0.1967895362663496,
+      "recall": 0.10736295815763866,
+      "f1": 0.13892969569779642,
+      "average_precision": 0.11247765246851407,
+      "roc_auc": 0.7400161987730551,
+      "flagged_count": 1682,
+      "flagged_rate": 0.018988270622368228,
+      "confusion_matrix": [
+        [
+          84147,
+          1351
+        ],
+        [
+          2752,
+          331
+        ]
+      ],
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 172,
+          "precision": 0.1943502824858757,
+          "recall": 0.055789815115147585
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 340,
+          "precision": 0.1919819311123659,
+          "recall": 0.11028219266947778
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 740,
+          "precision": 0.16708060510273198,
+          "recall": 0.24002594875121636
+        }
+      }
+    },
+    "extra_trees": {
+      "model": "extra_trees",
+      "selected_threshold": 0.8319185033914578,
+      "threshold_rule": "98th percentile of calibration scores",
+      "precision": 0.2362784471218206,
+      "recall": 0.11449886474213429,
+      "f1": 0.15424950841162333,
+      "average_precision": 0.14388108085979573,
+      "roc_auc": 0.7769300277149009,
+      "flagged_count": 1494,
+      "flagged_rate": 0.01686591932807261,
+      "confusion_matrix": [
+        [
+          84357,
+          1141
+        ],
+        [
+          2730,
+          353
+        ]
+      ],
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 223,
+          "precision": 0.2519774011299435,
+          "recall": 0.07233214401556926
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 421,
+          "precision": 0.23771880293619424,
+          "recall": 0.13655530327602985
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 911,
+          "precision": 0.2056897719575525,
+          "recall": 0.29549140447615957
+        }
+      }
+    },
+    "xgboost": {
+      "model": "xgboost",
+      "selected_threshold": 0.8437603712081909,
+      "threshold_rule": "98th percentile of calibration scores",
+      "precision": 0.2399497487437186,
+      "recall": 0.12390528705806034,
+      "f1": 0.16342245989304813,
+      "average_precision": 0.14945337765422184,
+      "roc_auc": 0.7871633183635633,
+      "flagged_count": 1592,
+      "flagged_rate": 0.017972251385737346,
+      "confusion_matrix": [
+        [
+          84288,
+          1210
+        ],
+        [
+          2701,
+          382
+        ]
+      ],
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 220,
+          "precision": 0.24858757062146894,
+          "recall": 0.07135906584495622
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 429,
+          "precision": 0.2422360248447205,
+          "recall": 0.1391501783976646
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 980,
+          "precision": 0.2212689094603748,
+          "recall": 0.3178722024002595
+        }
+      }
+    },
+    "lightgbm": {
+      "model": "lightgbm",
+      "selected_threshold": 0.8484341591298739,
+      "threshold_rule": "98th percentile of calibration scores",
+      "precision": 0.24415744157441574,
+      "recall": 0.12877067791112554,
+      "f1": 0.16861329369292843,
+      "average_precision": 0.14912837977560903,
+      "roc_auc": 0.7901869383419804,
+      "flagged_count": 1626,
+      "flagged_rate": 0.018356080875131235,
+      "confusion_matrix": [
+        [
+          84269,
+          1229
+        ],
+        [
+          2686,
+          397
+        ]
+      ],
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 234,
+          "precision": 0.26440677966101694,
+          "recall": 0.07590009730781706
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 443,
+          "precision": 0.25014116318464147,
+          "recall": 0.14369120986052547
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 935,
+          "precision": 0.21110860239331677,
+          "recall": 0.3032760298410639
+        }
+      }
+    }
+  }
+}

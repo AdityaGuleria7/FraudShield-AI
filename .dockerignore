@@ -1,0 +1,9 @@
+.venv*/
+.git/
+data/
+reports/
+var/
+warehouse/
+**/__pycache__/
+tests/
+docs/

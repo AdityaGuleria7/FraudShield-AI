@@ -11,7 +11,7 @@ def test_dashboard_shap_formatter_rejects_non_finite_values():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
 
-    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    source = (Path("app/dashboard.py").read_text(encoding="utf-8") + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     match = re.search(
         r"function formatShapContribution\(value\) \{.*?\n\}",
         source,
@@ -45,7 +45,7 @@ def test_dashboard_shap_rendering_reports_when_no_valid_contributions_remain():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
 
-    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    source = (Path("app/dashboard.py").read_text(encoding="utf-8") + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     match = re.search(
         r"function hasValidShapContributions\(drivers\) \{.*?\n\}",
         source,
@@ -79,7 +79,7 @@ def test_dashboard_explanation_status_uses_valid_contributions():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard SHAP helper.")
 
-    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    source = (Path("app/dashboard.py").read_text(encoding="utf-8") + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     helpers = []
     for name, pattern in (
         (

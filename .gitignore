@@ -1,4 +1,5 @@
 .venv/
+.venv*/
 .env
 .env.*
 !.env.example
@@ -22,3 +23,8 @@ reports/
 # Persistent audit logs
 var/audit/
 *.security.jsonl
+
+# Generated KPI warehouse
+warehouse/*.db
+warehouse/exports/
+!var/audit/.gitkeep

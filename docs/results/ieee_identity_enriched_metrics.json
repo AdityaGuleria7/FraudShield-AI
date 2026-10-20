@@ -1,0 +1,59 @@
+{
+  "experiment": "Extra Trees with and without identity enrichment",
+  "join": "Left join on TransactionID; one-to-one validation",
+  "identity_available_rate": 0.2442391709283029,
+  "split": "Chronological 70/15/15",
+  "note": "Iterative benchmark: this time period was evaluated in earlier experiments and is not a pristine untouched test.",
+  "models": {
+    "extra_trees_base": {
+      "model": "extra_trees_base",
+      "average_precision": 0.14388108085979573,
+      "roc_auc": 0.7769300277149009,
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 223,
+          "precision": 0.2519774011299435,
+          "recall": 0.07233214401556926
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 421,
+          "precision": 0.23771880293619424,
+          "recall": 0.13655530327602985
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 911,
+          "precision": 0.2056897719575525,
+          "recall": 0.29549140447615957
+        }
+      }
+    },
+    "extra_trees_identity_enriched": {
+      "model": "extra_trees_identity_enriched",
+      "average_precision": 0.18906052407546767,
+      "roc_auc": 0.7906473744215522,
+      "review_capacity": {
+        "top_1_percent": {
+          "transactions_reviewed": 885,
+          "frauds_found": 315,
+          "precision": 0.3559322033898305,
+          "recall": 0.10217320791436912
+        },
+        "top_2_percent": {
+          "transactions_reviewed": 1771,
+          "frauds_found": 606,
+          "precision": 0.34217955957086393,
+          "recall": 0.19656179046383393
+        },
+        "top_5_percent": {
+          "transactions_reviewed": 4429,
+          "frauds_found": 1080,
+          "precision": 0.24384736960939263,
+          "recall": 0.3503081414206941
+        }
+      }
+    }
+  }
+}

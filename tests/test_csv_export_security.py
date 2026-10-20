@@ -11,7 +11,7 @@ def test_ieee_csv_export_escapes_formula_like_text():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard CSV helper.")
 
-    source = Path("app/dashboard.py").read_text()
+    source = (Path("app/dashboard.py").read_text() + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     match = re.search(
         r"const q = v => \{.*?\n[ \t\u00a0]*\};",
         source,
@@ -55,7 +55,7 @@ def test_ieee_csv_export_handles_unicode_formula_prefixes():
     if node is None:
         pytest.skip("Node.js is required to execute the dashboard CSV helper.")
 
-    source = Path("app/dashboard.py").read_text(encoding="utf-8")
+    source = (Path("app/dashboard.py").read_text(encoding="utf-8") + Path("app/templates/dashboard.html").read_text(encoding="utf-8"))
     match = re.search(
         r"const q = v => \{.*?\n[ \t\u00a0]*\};",
         source,

@@ -6,8 +6,11 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist audit logs outside the container
+      # Audit logs persist outside the container. On Linux hosts run
+      # `mkdir -p var/audit && sudo chown 1000:1000 var/audit` once.
       - ./var/audit:/app/var/audit
+      # Optional trained model (see README: "Get the model"). Read-only.
+      - ./artifacts:/app/artifacts:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
