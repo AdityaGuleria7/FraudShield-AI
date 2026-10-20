@@ -150,3 +150,29 @@ def test_case_id_must_not_be_whitespace_when_provided():
             risk=make_risk(),
             review=ReviewStatus(status="PASS", approved_for_next_stage=True),
         )
+
+@pytest.mark.parametrize("invalid_integer", [True, False])
+def test_risk_score_rejects_boolean_values(invalid_integer):
+    with pytest.raises(ValidationError):
+        make_risk(score=invalid_integer)
+
+
+@pytest.mark.parametrize("invalid_integer", [True, False])
+def test_evidence_count_rejects_boolean_values(invalid_integer):
+    with pytest.raises(ValidationError):
+        make_risk(evidence_count=invalid_integer)
+
+
+@pytest.mark.parametrize("invalid_score", [float("nan"), float("inf"), float("-inf")])
+def test_model_signal_rejects_non_finite_scores(invalid_score):
+    with pytest.raises(ValidationError):
+        ModelSignal(
+            score=invalid_score,
+            score_semantics="uncalibrated_model_score",
+        )
+
+
+@pytest.mark.parametrize("invalid_threshold", [float("nan"), float("inf"), float("-inf")])
+def test_model_signal_rejects_non_finite_thresholds(invalid_threshold):
+    with pytest.raises(ValidationError):
+        ModelSignal(decision_threshold=invalid_threshold)

@@ -10,14 +10,14 @@ class RiskAssessment(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    score: int = Field(ge=0, le=100)
+    score: int = Field(strict=True, ge=0, le=100)
     level: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     decision: Literal[
         "NO_SUSPICIOUS_ACTIVITY",
         "REQUIRES_FURTHER_INVESTIGATION",
     ]
     evidence_quality: Literal["NONE", "PARTIAL", "STRONG"]
-    evidence_count: int = Field(ge=0)
+    evidence_count: int = Field(strict=True, ge=0)
     reasons: list[str] = Field(
         default_factory=list,
         description=(
