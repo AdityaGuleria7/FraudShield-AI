@@ -129,3 +129,24 @@ def test_unknown_fields_are_rejected():
 def test_review_status_rejects_inconsistent_approval(status, approved):
     with pytest.raises(ValidationError):
         ReviewStatus(status=status, approved_for_next_stage=approved)
+
+@pytest.mark.parametrize("task_id", ["   ", "\t", "\n"])
+def test_task_id_must_not_be_whitespace(task_id):
+    with pytest.raises(ValidationError):
+        InvestigationResult(
+            task_id=task_id,
+            status="COMPLETED",
+            risk=make_risk(),
+            review=ReviewStatus(status="PASS", approved_for_next_stage=True),
+        )
+
+
+def test_case_id_must_not_be_whitespace_when_provided():
+    with pytest.raises(ValidationError):
+        InvestigationResult(
+            task_id="task-valid",
+            case_id="   ",
+            status="COMPLETED",
+            risk=make_risk(),
+            review=ReviewStatus(status="PASS", approved_for_next_stage=True),
+        )

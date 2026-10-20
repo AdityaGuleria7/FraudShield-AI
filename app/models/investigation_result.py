@@ -135,6 +135,14 @@ class InvestigationResult(BaseModel):
     limitations: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
+    def validate_identifiers(self):
+        if not self.task_id.strip():
+            raise ValueError("task_id must not be empty or whitespace.")
+        if self.case_id is not None and not self.case_id.strip():
+            raise ValueError("case_id must not be empty or whitespace.")
+        return self
+
+    @model_validator(mode="after")
     def validate_result_consistency(self):
         if self.status in {"COMPLETED", "REQUIRES_REVIEW"} and self.risk is None:
             raise ValueError(
