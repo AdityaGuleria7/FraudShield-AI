@@ -116,3 +116,16 @@ def test_missing_identity_is_not_a_fraud_reason():
 def test_unknown_fields_are_rejected():
     with pytest.raises(ValidationError):
         make_risk(unreviewed_override=True)
+
+@pytest.mark.parametrize(
+    ("status", "approved"),
+    [
+        ("PASS", False),
+        ("REJECT", True),
+        ("ERROR", True),
+        ("PENDING", True),
+    ],
+)
+def test_review_status_rejects_inconsistent_approval(status, approved):
+    with pytest.raises(ValidationError):
+        ReviewStatus(status=status, approved_for_next_stage=approved)

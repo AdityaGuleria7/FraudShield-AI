@@ -101,6 +101,16 @@ class ReviewStatus(BaseModel):
     issues: list[str] = Field(default_factory=list)
     required_actions: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def validate_approval_consistency(self):
+        if self.status == "PASS" and not self.approved_for_next_stage:
+            raise ValueError("PASS review status requires downstream approval.")
+        if self.status in {"REJECT", "ERROR", "PENDING"} and self.approved_for_next_stage:
+            raise ValueError(
+                "REJECT, ERROR, and PENDING review statuses cannot approve downstream processing."
+            )
+        return self
+
 
 class InvestigationResult(BaseModel):
     """Stable API-friendly view over an investigation result."""
