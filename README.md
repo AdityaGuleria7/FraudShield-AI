@@ -4,12 +4,12 @@
 
 **Evidence-Driven · Explainable · Auditable · Analyst-Friendly**
 
-[![CI](https://github.com/AdityaGuleria7/FraudShield-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/AdityaGuleria7/FraudShield-AI/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.143-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikitlearn)](https://scikit-learn.org)
-[![Tests](https://img.shields.io/badge/tests-449%20passing-brightgreen)](tests/)
-[![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
+[CI workflow](https://github.com/AdityaGuleria7/FraudShield-AI/actions/workflows/ci.yml)
+[Python 3.12 / 3.13](https://python.org)
+[FastAPI](https://fastapi.tiangolo.com)
+[scikit-learn](https://scikit-learn.org)
+[Tests](tests/)
+[MIT License](LICENSE)
 
 </div>
 
