@@ -7,3 +7,12 @@ warehouse/
 **/__pycache__/
 tests/
 docs/
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Local runtime state and audit data
+audit_ledger.jsonl
+*.security.jsonl
