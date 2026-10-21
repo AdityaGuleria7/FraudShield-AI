@@ -218,6 +218,23 @@ def test_ieee_score_rejects_missing_transactions_array(client):
     assert "transactions" in response.json()["detail"]
 
 
+def test_ieee_score_rejects_over_100_rows_before_loading_model(
+    client, monkeypatch
+):
+    def unexpected_model_load():
+        pytest.fail("Model should not load for an oversized batch.")
+
+    monkeypatch.setattr(ieee_scorer, "load_artifact", unexpected_model_load)
+
+    response = client.post(
+        "/api/ieee-score",
+        json={"transactions": [valid_transaction() for _ in range(101)]},
+    )
+
+    assert response.status_code == 422
+    assert "maximum of 100 rows" in response.json()["detail"]
+
+
 def test_ieee_score_rejects_invalid_transaction(client, mock_artifact):
     transaction = valid_transaction()
     transaction["identity_available"] = 2
